@@ -1,0 +1,27 @@
+{
+  "name": "geotrackhr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GeoTrackHR – Smart Geo-Verified Attendance, Leave & Workforce Management System",
+  "workspaces": [
+    "geotrackhr-backend",
+    "geotrackhr-frontend",
+    "geotrackhr-mobile"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=geotrackhr-backend",
+    "dev:frontend": "npm run dev --workspace=geotrackhr-frontend",
+    "dev:mobile": "npm run start --workspace=geotrackhr-mobile",
+    "build:backend": "npm run build --workspace=geotrackhr-backend",
+    "build:frontend": "npm run build --workspace=geotrackhr-frontend",
+    "db:migrate": "npm run db:migrate --workspace=geotrackhr-backend",
+    "db:seed": "npm run db:seed --workspace=geotrackhr-backend",
+    "test:backend": "npm run test --workspace=geotrackhr-backend",
+    "lint": "npm run lint --workspace=geotrackhr-backend && npm run lint --workspace=geotrackhr-frontend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
