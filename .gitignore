@@ -45,6 +45,18 @@ docker/data/
 *.mobileprovision
 *.orig.*
 
+# React Native native build artifacts (generated per-machine)
+geotrackhr-mobile/android/.gradle/
+geotrackhr-mobile/android/app/build/
+geotrackhr-mobile/android/build/
+geotrackhr-mobile/android/local.properties
+geotrackhr-mobile/android/app/release/
+geotrackhr-mobile/ios/Pods/
+geotrackhr-mobile/ios/build/
+geotrackhr-mobile/ios/*.xcworkspace/xcuserdata/
+geotrackhr-mobile/ios/HelloWorld.xcodeproj/xcuserdata/
+*.apk
+
 # TypeScript
 *.tsbuildinfo
 

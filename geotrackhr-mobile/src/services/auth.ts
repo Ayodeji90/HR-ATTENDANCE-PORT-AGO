@@ -1,29 +1,56 @@
-import axios from 'axios';
+import { api } from './api';
+import type { AuthResponse } from '../types';
 
-const API_BASE = 'http://localhost:5000/api'; // adjust to backend URL if needed
-
-export interface LoginResponse {
-  token: string;
-  userId: string;
+/** POST /auth/login — returns access + refresh tokens and the user profile */
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const response = await api.post('/auth/login', { email, password, deviceInfo: 'mobile' });
+  return response.data.data as AuthResponse;
 }
 
-export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  const response = await axios.post<LoginResponse>(`${API_BASE}/auth/login`, {
-    email,
-    password,
-  });
-  return response.data;
-};
+/** POST /auth/logout — invalidate the refresh token server-side */
+export async function logout(refreshToken: string): Promise<void> {
+  try {
+    await api.post('/auth/logout', { refreshToken });
+  } catch {
+    // Best effort — the client clears its session regardless.
+  }
+}
 
-export const register = async (
-  name: string,
-  email: string,
-  password: string
-): Promise<LoginResponse> => {
-  const response = await axios.post<LoginResponse>(`${API_BASE}/auth/register`, {
-    name,
-    email,
-    password,
+export interface SelfRegistrationPayload {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  hire_date?: string;
+}
+
+/**
+ * POST /employees/register — public self-registration (multipart form).
+ * Does NOT create a login account: the record lands in the pending queue and
+ * HR must approve it before the employee can log in.
+ */
+export async function selfRegister(
+  payload: SelfRegistrationPayload,
+  photo?: { uri: string; name: string; type: string } | null
+): Promise<{ employeeId: string; status: string }> {
+  const form = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      form.append(key, String(value));
+    }
   });
-  return response.data;
-};
+  if (photo) {
+    form.append('passport_photo', {
+      uri: photo.uri,
+      name: photo.name,
+      type: photo.type,
+    } as unknown as Blob);
+  }
+
+  const response = await api.post('/employees/register', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data.data as { employeeId: string; status: string };
+}

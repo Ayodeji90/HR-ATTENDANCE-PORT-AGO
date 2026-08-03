@@ -52,6 +52,7 @@ export interface UpdateEmployeeInput {
   approval_status?: 'pending' | 'approved' | 'rejected';
   rejection_reason?: string | null;
   approved_by?: string | null;
+  user_id?: string | null; // link to a login account (set when HR approves a self-registration)
   is_active?: boolean;
 }
 

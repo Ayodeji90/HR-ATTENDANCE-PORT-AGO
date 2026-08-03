@@ -1,14 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
+import knex from 'knex';
 import { AppError } from '@middleware/errorHandler';
 import { logger } from '@utils/logger';
 import { employeeModel } from './employee.model';
 import { authenticate } from '@middleware/auth';
 import { requireRole } from '@middleware/rbac';
+import { hashPassword } from '@utils/password';
+import * as userModel from '@modules/auth/user.model';
+import { knexfile } from '@database/knexfile';
 import multer from 'multer';
 import { config } from '@config/index';
 import path from 'path';
 import fs from 'fs';
+
+const environment = process.env.NODE_ENV || 'development';
+const db = knex(knexfile[environment] ?? knexfile.development);
 
 // ---------------------------------------------------------------------------
 // Multer setup for passport photo uploads
@@ -85,6 +93,19 @@ export async function listEmployees(req: Request, res: Response, next: NextFunct
       search,
     });
     res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** GET /api/employees/me – the current user's linked employee record */
+export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const employee = await employeeModel.findByUserId(req.user!.userId);
+    if (!employee) {
+      throw new AppError('No employee record linked to this account', 404, 'NO_LINKED_EMPLOYEE');
+    }
+    res.json({ success: true, data: employee });
   } catch (err) {
     next(err);
   }
@@ -172,8 +193,38 @@ export async function approveEmployee(req: Request, res: Response, next: NextFun
     const { id } = req.params;
     const approverId = req.user!.userId;
     const employee = await employeeModel.approve(id, approverId);
+
+    // Complete the self-registration loop: an approved employee with no
+    // linked login account gets one created (role: employee) with a
+    // system-generated temporary password. The password is returned in the
+    // response so HR can relay it to the employee.
+    let result = employee;
+    let temporaryPassword: string | null = null;
+    if (!employee.user_id && employee.email) {
+      const employeeRole = await db('roles').where({ name: 'employee' }).first();
+      if (employeeRole) {
+        temporaryPassword = crypto.randomBytes(8).toString('base64url').slice(0, 12);
+        const passwordHash = await hashPassword(temporaryPassword);
+        const user = await userModel.createUser({
+          role_id: employeeRole.id,
+          email: employee.email,
+          password_hash: passwordHash,
+          full_name: `${employee.first_name} ${employee.last_name}`,
+          phone: employee.phone ?? undefined,
+        });
+        result = await employeeModel.update(id, { user_id: user.id });
+        logger.info('Login account created for approved employee', {
+          employeeId: id,
+          userId: user.id,
+        });
+      }
+    }
+
     logger.info('Employee approved', { employeeId: id, approverId });
-    res.json({ success: true, data: employee });
+    res.json({
+      success: true,
+      data: { ...result, temporary_password: temporaryPassword },
+    });
   } catch (err) {
     next(err);
   }

@@ -1,8 +1,16 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
+/**
+ * API base URL.
+ * - Development: Vite proxies /api → http://localhost:3000 (vite.config.ts).
+ * - Production: set VITE_API_BASE_URL at build time, e.g.
+ *   VITE_API_BASE_URL=https://geotrackhr-api.onrender.com/api
+ */
+export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
@@ -23,7 +31,7 @@ async function refreshAccessToken(): Promise<string> {
   const refreshToken = useAuthStore.getState().refreshToken;
   if (!refreshToken) throw new Error('No refresh token available');
 
-  const response = await axios.post('/api/auth/refresh', { refreshToken });
+  const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
   const { accessToken, refreshToken: newRefreshToken } = response.data.data;
   useAuthStore.setState({ accessToken, refreshToken: newRefreshToken });
   return accessToken;

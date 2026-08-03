@@ -29,6 +29,10 @@ const environment = process.env.NODE_ENV || 'development';
 const db: Knex = knex(knexfile[environment] ?? knexfile.development);
 
 export const notificationModel = {
+  async findById(id: string): Promise<NotificationRecord | undefined> {
+    return db<NotificationRecord>('notifications').where({ id }).first();
+  },
+
   async create(input: CreateNotificationInput): Promise<NotificationRecord> {
     const [record] = await db<NotificationRecord>('notifications')
       .insert({ ...input, is_read: false })

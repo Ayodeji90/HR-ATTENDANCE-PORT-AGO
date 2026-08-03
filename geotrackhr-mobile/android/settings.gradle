@@ -1,0 +1,16 @@
+rootProject.name = 'GeoTrackHRMobile'
+
+// In a monorepo (npm workspaces) the RN build tooling is hoisted to the
+// repo-root node_modules, so try the local install first, then the root one.
+def cliAndroidGradle = file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+if (!cliAndroidGradle.exists()) {
+    cliAndroidGradle = file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+}
+apply from: cliAndroidGradle; applyNativeModulesSettingsGradle(settings)
+
+def rnGradlePlugin = file("../node_modules/@react-native/gradle-plugin")
+if (!rnGradlePlugin.exists()) {
+    rnGradlePlugin = file("../../node_modules/@react-native/gradle-plugin")
+}
+include ':app'
+includeBuild(rnGradlePlugin)
