@@ -5,73 +5,111 @@ review:
 
 | Piece | Where | Cost | Notes |
 |-------|-------|------|-------|
-| PostgreSQL | **Neon** | Free | Persistent, no expiry (0.5 GB / 100 CU-hrs) |
-| Backend API | **Render** web service | Free | Spins down after 15 min idle (~1 min cold start) |
-| Admin dashboard | **Vercel** | Free | Static Vite build |
+| PostgreSQL | **Render Postgres** (via `render.yaml`) | Free | Created automatically by the Blueprint; free instances expire after 30 days |
+| Backend API | **Render** web service (via `render.yaml`) | Free | Spins down after 15 min idle (~1 min cold start) |
+| Admin dashboard | **Netlify** | Free | Static Vite build, SPA redirects via `netlify.toml` |
 | Mobile app | Debug/Release APK | Free | Built on your machine, shared as a file |
 
-Demo logins (seeded):
+Demo logins (seeded automatically on first Render deploy):
 
 - Admin: `admin@geotrackhr.com` / `Admin@123`
 - Employees: `james.wilson@demo.com`, `maria.garcia@demo.com`, `robert.chen@demo.com` — all `Employee@123`
 
 ---
 
-## 1. Database — Neon (Postgres)
+## 1. Backend + Database — Render (Blueprint)
 
-1. Create a free account at <https://neon.tech> and create a **project**.
-2. In **Connection Details**, copy the **connection string**, e.g.
-   `postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require`
-3. Run the migrations + seed **from your machine** (the code now supports
-   `DATABASE_URL`):
+The repo contains a `render.yaml` Blueprint at the root that deploys **both**
+the Postgres database (`geotrackhr-db`) and the API web service
+(`geotrackhr-api`) together. No manual DB setup needed.
 
+1. Make sure the `testing` branch is pushed to GitHub:
    ```bash
-   cd geotrackhr-backend
-   export DATABASE_URL="postgresql://user:password@ep-xxx...neondb?sslmode=require"
-   npm run db:migrate
-   npm run db:seed
+   git push origin testing
    ```
+2. Create a free account at <https://render.com>.
+3. **Dashboard → New + → Blueprint** → connect the GitHub repo
+   (`Ayodeji90/HR-ATTENDANCE-PORT-AGO`) → select the **`testing`** branch.
+   Render reads `render.yaml` and offers to create:
+   - `geotrackhr-db` — Postgres (free)
+   - `geotrackhr-api` — Node web service (free)
+4. During creation Render asks for the env var `CORS_ORIGIN` (it's marked
+   `sync: false` in the blueprint). Enter your **Netlify URL**, e.g.
+   `https://<your-site>.netlify.app` — scheme + host, **no trailing slash**.
+   `JWT_SECRET` / `JWT_REFRESH_SECRET` are generated automatically by Render.
+5. **Apply / Deploy.** The API becomes live at
+   `https://geotrackhr-api.onrender.com` (Render assigns the subdomain from
+   the service name; if `geotrackhr-api` is already taken it appends a suffix
+   — note your actual URL).
 
-   You should see the migrations apply and `Seed files run: [ '001_bootstrap.ts' ]`.
+   What happens automatically on the first deploy (configured in the
+   blueprint):
+   - `buildCommand`: `npm install --workspace geotrackhr-backend && npm run build`
+     (the repo is an npm monorepo — the `--workspace` flag keeps the install
+     scoped to the backend instead of also pulling the react-native app)
+   - `preDeployCommand`: `node dist/database/migrate.js` — applies all
+     migrations (runs on every deploy, idempotent)
+   - `initialDeployHook`: `node dist/database/seed.js` — inserts demo roles,
+     admin + employee logins, and 2 demo sites (runs once, after the first
+     successful deploy)
 
-> Keep `DATABASE_URL` — you'll paste it into Render next.
+6. **Verify:** open `https://geotrackhr-api.onrender.com/api/health` →
+   `{"success":true,..."status":"healthy"}`.
 
-## 2. Backend — Render (web service)
+> **Notes:**
+> - Free web instances spin down after 15 min idle — the first request after
+>   a pause takes ~1 min.
+> - Free Postgres instances are **deleted 30 days after creation**. If you
+>   need the DB to persist longer, upgrade the database plan on Render or
+>   switch to a hosted Postgres (e.g. Neon) and set `DATABASE_URL` manually.
+> - Uploaded files (photos, leave documents) live on an ephemeral disk and
+>   are wiped on redeploy/restart — fine for a demo.
 
-1. Create a free account at <https://render.com>.
-2. **New → Web Service** → connect your GitHub repo.
-3. Settings:
-   - **Root Directory:** `geotrackhr-backend`
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** `npm run start`
-   - **Instance Type:** Free
-4. **Environment variables**:
-   - `NODE_ENV` = `production`
-   - `DATABASE_URL` = *(from Neon)*
-   - `JWT_SECRET` = a long random string
-   - `JWT_REFRESH_SECRET` = a different long random string
-   - `CORS_ORIGIN` = `https://<your-frontend>.vercel.app` (add after step 3)
-5. Deploy. You'll get a URL like `https://geotrackhr-api.onrender.com`.
-   - Verify: open `https://geotrackhr-api.onrender.com/api/health` → `"healthy"`.
+### Environment variables (summary)
 
-> **Notes:** free instances spin down after 15 min idle — the first request
-> after a pause takes ~1 min. Uploaded files (photos, leave documents) live on
-> an ephemeral disk and are wiped on redeploy/restart — fine for a demo.
+| Variable | Set by | Notes |
+|----------|--------|-------|
+| `NODE_ENV` | Blueprint | `production` |
+| `DATABASE_URL` | Blueprint | Auto-wired to `geotrackhr-db` (private network) |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | Blueprint | `generateValue: true` |
+| `CORS_ORIGIN` | You, at creation | Your Netlify URL (prompted) |
+| `PORT` | Render | Injected automatically; `server.ts` already binds `0.0.0.0` |
 
-## 3. Frontend — Vercel
+If you need to change `CORS_ORIGIN` later, edit it in the Render dashboard
+(Environment tab → save → triggers a redeploy).
 
-1. Create a free account at <https://vercel.com>.
-2. **Add New → Project** → import the same repo.
-3. **Root Directory:** `geotrackhr-frontend`
-4. **Build Command:** `npm run build` — **Output Directory:** `dist`
-5. **Environment variable**: `VITE_API_BASE_URL` = `https://<your-backend>.onrender.com/api`
-6. Deploy → you get `https://<project>.vercel.app`.
+---
 
-The dashboard now calls your live backend (CORS is already configured server-side
-via `CORS_ORIGIN`). Log in with the admin demo account and send the link to
-your reviewer.
+## 2. Frontend — Netlify
 
-## 4. Mobile app — build a shareable APK
+The repo already contains `geotrackhr-frontend/netlify.toml`, which sets the
+build command, publish directory, and an SPA redirect so deep links
+(`/login`, `/dashboard`, …) don't 404.
+
+1. Create a free account at <https://netlify.com>.
+2. **Add new site → Import an existing project** → connect the GitHub repo.
+   - **Root directory:** `geotrackhr-frontend`
+   - Build settings come from `netlify.toml` automatically
+     (`npm run build` / publish `dist`).
+3. **Environment variable** (Site settings → Environment variables):
+   `VITE_API_BASE_URL` = `https://geotrackhr-api.onrender.com/api`
+   (use your **actual** Render URL — the subdomain is only `geotrackhr-api`
+   if that name wasn't already taken).
+   - The `netlify.toml` `[build.environment]` block is left commented out on
+     purpose: the dashboard variable is the single source of truth and wins
+     over `netlify.toml` anyway.
+4. **Deploy.** You get `https://<your-site>.netlify.app`.
+5. **Verify the connection:** open the Netlify URL, log in with
+   `admin@geotrackhr.com` / `Admin@123`, and confirm the dashboard loads data.
+   In DevTools → Network, API calls should go to your `*.onrender.com` URL
+   (not a relative `/api`).
+
+The dashboard now calls your live backend (CORS is handled by `CORS_ORIGIN`
+on Render, which must match the Netlify URL exactly).
+
+---
+
+## 3. Mobile app — build a shareable APK
 
 The `android/` (and `ios/`) native projects are now in the repo — the app was
 previously JS-only and couldn't be built. To produce a file a reviewer can
@@ -121,11 +159,27 @@ harmless; the app name shown is "GeoTrackHR".
 
 ## Troubleshooting
 
-- **Login fails / 401 loop** — confirm `JWT_SECRET`/`JWT_REFRESH_SECRET` are set
-  on Render (the server refuses to start in production without them).
+- **Login fails / 401 loop** — confirm `JWT_SECRET`/`JWT_REFRESH_SECRET` are
+  set on Render (the server refuses to start in production without them — the
+  blueprint generates them, but check they exist in the Environment tab).
 - **CORS errors in the browser console** — confirm `CORS_ORIGIN` on Render
-  matches the exact Vercel URL (scheme + host, no trailing slash).
-- **Empty dashboard data** — re-run `db:migrate` + `db:seed` against
-  `DATABASE_URL` after creating the Neon project.
+  matches the exact Netlify URL (scheme + host, no trailing slash), then
+  redeploy.
+- **Empty dashboard data** — check that the deploy logs show the migrations
+  (`preDeployCommand`) and seed (`initialDeployHook`) ran successfully. To
+  re-seed from your machine, use the **External Database URL** from the
+  Render Postgres dashboard (the blueprint-injected `DATABASE_URL` is
+  private-network only and unreachable from a laptop), and leave
+  `NODE_ENV` unset so the runner uses the TS migration/seed files:
+  ```bash
+  cd geotrackhr-backend
+  DATABASE_URL="postgres://...@..." npm run db:migrate
+  DATABASE_URL="postgres://...@..." npm run db:seed
+  ```
 - **Backend offline** — free Render instances sleep; just wait ~1 min on the
   first request of the day.
+- **Deep links 404 on Netlify** — make sure `netlify.toml` is deployed (the
+  SPA redirect lives there).
+- **Postgres deleted after 30 days** — free Render Postgres expires; upgrade
+  the database plan or move `DATABASE_URL` to another provider (Neon) before
+  it happens.

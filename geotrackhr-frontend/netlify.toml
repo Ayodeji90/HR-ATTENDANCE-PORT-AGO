@@ -1,0 +1,28 @@
+# Netlify deployment configuration for the GeoTrackHR admin dashboard.
+#
+# If you deploy through the Netlify dashboard you can leave this file as-is —
+# Netlify auto-detects it and applies these settings on every build.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# VITE_API_BASE_URL (build-time env var — Vite bakes VITE_* vars into the
+# bundle, so it must point at the production backend BEFORE the build runs).
+#
+# Source of truth: the Netlify dashboard (Site settings → Environment
+# variables) — it takes precedence over this file and is easier to change.
+#
+# Uncomment the block below ONLY after your Render service is live and you've
+# confirmed its actual subdomain (Render appends a suffix if the blueprint
+# name "geotrackhr-api" is already taken):
+#
+# [build.environment]
+#   VITE_API_BASE_URL = "https://geotrackhr-api.onrender.com/api"
+
+# SPA redirect: every route (e.g. /login, /dashboard, /employees/123) serves
+# index.html so client-side routing works on refresh and deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
