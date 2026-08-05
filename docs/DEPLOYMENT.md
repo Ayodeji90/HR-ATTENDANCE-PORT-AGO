@@ -47,11 +47,14 @@ the Postgres database (`geotrackhr-db`) and the API web service
    - `buildCommand`: `npm install --workspace geotrackhr-backend && npm run build`
      (the repo is an npm monorepo — the `--workspace` flag keeps the install
      scoped to the backend instead of also pulling the react-native app)
-   - `preDeployCommand`: `node dist/database/migrate.js` — applies all
-     migrations (runs on every deploy, idempotent)
+   - `startCommand`: `node dist/database/migrate.js && node dist/server.js` —
+     applies all migrations, then boots the API (knex migrations are
+     idempotent, so running them on every start is safe). Migrations are
+     chained into the start command because Render's `preDeployCommand` is
+     **not supported on the free tier**.
    - `initialDeployHook`: `node dist/database/seed.js` — inserts demo roles,
      admin + employee logins, and 2 demo sites (runs once, after the first
-     successful deploy)
+     successful deploy; supported on free tier)
 
 6. **Verify:** open `https://geotrackhr-api.onrender.com/api/health` →
    `{"success":true,..."status":"healthy"}`.
@@ -166,8 +169,9 @@ harmless; the app name shown is "GeoTrackHR".
   matches the exact Netlify URL (scheme + host, no trailing slash), then
   redeploy.
 - **Empty dashboard data** — check that the deploy logs show the migrations
-  (`preDeployCommand`) and seed (`initialDeployHook`) ran successfully. To
-  re-seed from your machine, use the **External Database URL** from the
+  (run inside `startCommand`) and seed (`initialDeployHook`) ran
+  successfully. To re-seed from your machine, use the **External Database
+  URL** from the
   Render Postgres dashboard (the blueprint-injected `DATABASE_URL` is
   private-network only and unreachable from a laptop), and leave
   `NODE_ENV` unset so the runner uses the TS migration/seed files:

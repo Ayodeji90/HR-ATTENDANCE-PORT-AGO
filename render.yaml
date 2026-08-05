@@ -27,13 +27,14 @@ services:
     region: oregon
     plan: free
     buildCommand: npm install --workspace geotrackhr-backend && npm run build
-    startCommand: npm run start
+    # Migrations run before the server starts (knex is idempotent, so this is
+    # safe on every start). NOTE: preDeployCommand is NOT supported on free
+    # tier, so migrations run inside startCommand instead.
+    startCommand: node dist/database/migrate.js && node dist/server.js
     healthCheckPath: /api/health
-    # Migrations run automatically before every deploy (idempotent).
-    preDeployCommand: node dist/database/migrate.js
     # Demo seed data (admin + demo employees/sites) is inserted once, after
     # the first successful deploy. It truncates the tables, so it must NOT
-    # run on every deploy — hence initialDeployHook and not preDeployCommand.
+    # run on every deploy — hence initialDeployHook (supported on free tier).
     initialDeployHook: node dist/database/seed.js
     envVars:
       - key: NODE_ENV
