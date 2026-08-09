@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
 import { AppError } from '@middleware/errorHandler';
 import { logger } from '@utils/logger';
 import { attendanceModel, AttendanceRecord } from './attendance.model';
@@ -7,6 +9,7 @@ import { siteModel } from '@modules/site/site.model';
 import { employeeModel } from '@modules/employee/employee.model';
 import { isWithinGeofence } from '@utils/geofence';
 import { facialModel } from '@modules/facial/facial.model';
+import { config } from '@config/index';
 import { resolveEmployeeId } from '@middleware/ownership';
 import { getLocalTime, getLocalDate, isCheckInOnTime, isCheckInLate, isCheckInVeryLate, isAfternoonWindow, isCheckoutWindow } from '@utils/time';
 import * as notificationService from '@modules/notification/notification.service';
@@ -14,15 +17,52 @@ import * as notificationService from '@modules/notification/notification.service
 /** Postgres unique_violation error code */
 const UNIQUE_VIOLATION = '23505';
 
+// ---------------------------------------------------------------------------
+// Live-attendance selfie capture
+// ---------------------------------------------------------------------------
+const selfieDir = path.resolve(config.upload.dir, 'attendance');
+if (!fs.existsSync(selfieDir)) {
+  fs.mkdirSync(selfieDir, { recursive: true });
+}
+
+/**
+ * Decodes a base64 data-URL selfie (e.g. from the web frontend's camera
+ * capture) and writes it to uploads/attendance. Returns the stored relative
+ * path. Throws if the payload isn't a valid JPEG/PNG data URL or is empty.
+ */
+function saveSelfie(dataUrl: string): string {
+  const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl.trim());
+  if (!match) throw new AppError('Invalid selfie image format', 400, 'INVALID_SELFIE');
+  const [, ext, base64] = match;
+  const buffer = Buffer.from(base64, 'base64');
+  if (buffer.length === 0) throw new AppError('Selfie image is empty', 400, 'INVALID_SELFIE');
+  if (buffer.length > config.upload.maxFileSize) {
+    throw new AppError('Selfie image exceeds the size limit', 400, 'SELFIE_TOO_LARGE');
+  }
+  const filename = `att-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+  const absolute = path.join(selfieDir, filename);
+  fs.writeFileSync(absolute, buffer);
+  return path.relative(process.cwd(), absolute);
+}
+
 // Validation schemas. employee_id is accepted but ignored for employee-role
 // callers — resolveEmployeeId always forces those to their own linked
 // employee record (see @middleware/ownership).
+// Shared live-attendance fields: optional base64 data-URL selfie captured at
+// punch time, device-reported GPS accuracy in meters, and a device label.
+const liveAttendanceFields = {
+  selfie: z.string().optional(),
+  gps_accuracy: z.number().min(0).max(100000).optional(),
+  device_info: z.string().max(255).optional(),
+};
+
 const checkInSchema = z.object({
   employee_id: z.string().uuid().optional(),
   site_id: z.string().uuid(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   reason: z.string().optional(), // required for late (9:01-10:00) check-ins
+  ...liveAttendanceFields,
 });
 
 const afternoonSchema = z.object({
@@ -30,6 +70,7 @@ const afternoonSchema = z.object({
   site_id: z.string().uuid(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  ...liveAttendanceFields,
 });
 
 const checkoutSchema = z.object({
@@ -37,6 +78,7 @@ const checkoutSchema = z.object({
   site_id: z.string().uuid(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  ...liveAttendanceFields,
 });
 
 const syncItemSchema = z.object({
@@ -104,6 +146,10 @@ async function recordPunch(params: {
   longitude: number;
   reason?: string;
   at: Date;
+  selfie?: string;
+  gpsAccuracy?: number;
+  deviceInfo?: string;
+  ipAddress?: string;
 }): Promise<AttendanceRecord> {
   const { employeeId, siteId, eventType, latitude, longitude, at } = params;
   let reason = params.reason;
@@ -113,11 +159,23 @@ async function recordPunch(params: {
 
   await verifyGeofence(siteId, latitude, longitude);
 
-  // Facial verification placeholder – if a template exists, we assume
-  // verification passes. A real implementation would compare a live selfie.
-  const facial = await facialModel.findByEmployeeId(employeeId);
-  if (facial) {
-    logger.info('Facial verification required (placeholder)', { employeeId });
+  // Live selfie: persist the image and (placeholder) facial verification.
+  // The real verification pipeline is not wired up yet — a stored template
+  // means we record facial_verified=true; otherwise the image is still kept
+  // as evidence and the record is flagged unverified.
+  let selfiePath: string | null = null;
+  let facialVerified = false;
+  let facialMatchScore: number | null = null;
+  if (params.selfie) {
+    selfiePath = saveSelfie(params.selfie);
+    const facial = await facialModel.findByEmployeeId(employeeId);
+    if (facial) {
+      facialVerified = true;
+      facialMatchScore = 1; // placeholder — template exists
+      logger.info('Facial verification passed (placeholder)', { employeeId });
+    } else {
+      logger.info('No facial template on file — selfie stored, verification skipped', { employeeId });
+    }
   }
 
   const localTime = getLocalTime(at);
@@ -152,9 +210,15 @@ async function recordPunch(params: {
       event_type: eventType,
       gps_latitude: latitude,
       gps_longitude: longitude,
+      gps_accuracy: params.gpsAccuracy ?? null,
       within_geofence: true, // verifyGeofence above throws before we get here otherwise
       status,
       reason,
+      facial_match_score: facialMatchScore,
+      facial_verified: facialVerified,
+      selfie_path: selfiePath,
+      device_info: params.deviceInfo ?? null,
+      ip_address: params.ipAddress ?? null,
       event_date: getLocalDate(at),
       event_time: localTime.hour.toString().padStart(2, '0') + ':' + localTime.minute.toString().padStart(2, '0') + ':00',
     });
@@ -172,6 +236,12 @@ async function recordPunch(params: {
   }
 }
 
+/** Client IP (handles IPv4-mapped IPv6 from proxies/load balancers) */
+function clientIp(req: Request): string {
+  const raw = req.ip || req.socket.remoteAddress || '';
+  return raw.replace(/^::ffff:/, '').slice(0, 45);
+}
+
 /** Morning check‑in */
 export async function checkIn(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -185,6 +255,10 @@ export async function checkIn(req: Request, res: Response, next: NextFunction): 
       longitude: payload.longitude,
       reason: payload.reason,
       at: new Date(),
+      selfie: payload.selfie,
+      gpsAccuracy: payload.gps_accuracy,
+      deviceInfo: payload.device_info,
+      ipAddress: clientIp(req),
     });
     logger.info('Check‑in recorded', { attendanceId: record.id, status: record.status });
     res.status(201).json({ success: true, data: record });
@@ -205,6 +279,10 @@ export async function afternoonConfirm(req: Request, res: Response, next: NextFu
       latitude: payload.latitude,
       longitude: payload.longitude,
       at: new Date(),
+      selfie: payload.selfie,
+      gpsAccuracy: payload.gps_accuracy,
+      deviceInfo: payload.device_info,
+      ipAddress: clientIp(req),
     });
     logger.info('Afternoon confirmation recorded', { attendanceId: record.id });
     res.status(201).json({ success: true, data: record });
@@ -225,6 +303,10 @@ export async function checkOut(req: Request, res: Response, next: NextFunction):
       latitude: payload.latitude,
       longitude: payload.longitude,
       at: new Date(),
+      selfie: payload.selfie,
+      gpsAccuracy: payload.gps_accuracy,
+      deviceInfo: payload.device_info,
+      ipAddress: clientIp(req),
     });
     logger.info('Check‑out recorded', { attendanceId: record.id });
     res.status(201).json({ success: true, data: record });

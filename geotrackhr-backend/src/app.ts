@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import fs from 'fs';
 import { config } from '@config/index';
 import { errorHandler } from '@middleware/errorHandler';
 import { logger } from '@utils/logger';
@@ -83,6 +85,16 @@ app.get('/api/health', (_req, res) => {
     },
   });
 });
+
+// ── Static uploads (selfies, facial templates, passport photos) ──────────
+// Served above the rate limiter like the health check so image viewers
+// (e.g. an admin reviewing a punch selfie) are never 429'd. Files live on
+// an ephemeral disk and are wiped on redeploy — fine for a demo.
+const uploadsDir = path.resolve(config.upload.dir);
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // ── Rate limiting ──────────────────────────────────────
 app.use(

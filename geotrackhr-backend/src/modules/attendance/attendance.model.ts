@@ -17,6 +17,7 @@ export interface AttendanceRecord {
   facial_verified: boolean;
   device_info: string | null;
   ip_address: string | null;
+  selfie_path: string | null;
   status: 'pending' | 'approved' | 'rejected';
   reason: string | null;
   notes: string | null;
@@ -35,6 +36,14 @@ export interface CreateAttendanceInput {
   reason?: string;
   event_date?: string;
   event_time?: string;
+  // Live-attendance metadata (populated by the punch controller):
+  gps_accuracy?: number | null;
+  facial_match_score?: number | null;
+  facial_verified?: boolean;
+  device_info?: string | null;
+  ip_address?: string | null;
+  selfie_path?: string | null;
+  notes?: string | null;
 }
 
 const environment = process.env.NODE_ENV || 'development';
@@ -92,7 +101,14 @@ export const attendanceModel = {
         event_time: input.event_time ?? now.toISOString().slice(11, 19),
         gps_latitude: input.gps_latitude,
         gps_longitude: input.gps_longitude,
+        gps_accuracy: input.gps_accuracy ?? null,
         within_geofence: input.within_geofence,
+        facial_match_score: input.facial_match_score ?? null,
+        facial_verified: input.facial_verified ?? false,
+        device_info: input.device_info ?? null,
+        ip_address: input.ip_address ?? null,
+        selfie_path: input.selfie_path ?? null,
+        notes: input.notes ?? null,
         status: input.status,
         reason: input.reason ?? null,
       })

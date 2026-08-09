@@ -5,6 +5,12 @@ export const fetchEmployees = async (params?: Record<string, unknown>) => {
   return response.data;
 };
 
+/** GET /employees/me — the current user's linked employee record (self-service) */
+export const fetchMe = async (): Promise<any> => {
+  const response = await api.get('/employees/me');
+  return response.data.data;
+};
+
 export const fetchEmployee = async (id: string) => {
   const response = await api.get(`/employees/${id}`);
   return response.data;

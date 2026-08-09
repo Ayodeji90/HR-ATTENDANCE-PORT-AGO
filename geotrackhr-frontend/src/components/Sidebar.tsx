@@ -13,6 +13,7 @@ import {
   BarChart3,
   ScrollText,
   Settings as SettingsIcon,
+  Camera,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -32,7 +33,11 @@ type NavGroup = {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
-    items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'supervisor'] }],
+    items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'supervisor', 'employee'] }],
+  },
+  {
+    label: 'My Work',
+    items: [{ to: '/attendance/live', label: 'Live Attendance', icon: Camera, roles: ['employee'] }],
   },
   {
     label: 'Attendance',

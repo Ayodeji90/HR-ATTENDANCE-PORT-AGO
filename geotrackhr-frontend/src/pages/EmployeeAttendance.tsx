@@ -16,7 +16,7 @@ const EmployeeAttendance: React.FC = () => {
   useEffect(() => {
     if (!employeeId) return;
     fetchEmployeeAttendanceHistory(employeeId)
-      .then((res) => setRecords(res.data.data))
+      .then((records) => setRecords(records))
       .catch(() => setError('Failed to load attendance history.'))
       .finally(() => setLoading(false));
   }, [employeeId]);

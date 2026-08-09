@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import LiveAttendance from './pages/LiveAttendance';
 import AttendanceDashboard from './pages/AttendanceDashboard';
 import DailyAttendance from './pages/DailyAttendance';
 import PendingAttendance from './pages/PendingAttendance';
@@ -46,6 +47,7 @@ const App: React.FC = () => {
 
           {/* Attendance monitoring */}
           <Route path="/attendance" element={<AttendanceDashboard />} />
+          <Route path="/attendance/live" element={<LiveAttendance />} />
           <Route path="/attendance/daily" element={<DailyAttendance />} />
           <Route path="/attendance/pending" element={<PendingAttendance />} />
           <Route path="/attendance/alerts" element={<LocationAlerts />} />

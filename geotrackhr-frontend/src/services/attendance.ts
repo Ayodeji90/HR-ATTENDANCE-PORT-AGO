@@ -12,10 +12,49 @@ export type AttendanceRecord = {
   event_type: AttendanceEventType;
   gps_latitude: string | number;
   gps_longitude: string | number;
+  gps_accuracy: string | number | null;
   within_geofence: boolean;
+  facial_match_score: string | number | null;
+  facial_verified: boolean;
+  device_info: string | null;
+  ip_address: string | null;
+  selfie_path: string | null;
   status: AttendanceStatus;
   reason: string | null;
   created_at: string;
+};
+
+/** Payload for a live punch (check-in / afternoon / check-out). */
+export type PunchPayload = {
+  site_id: string;
+  latitude: number;
+  longitude: number;
+  reason?: string;
+  /** Base64 data-URL JPEG/PNG captured from the browser camera. */
+  selfie?: string;
+  gps_accuracy?: number;
+  device_info?: string;
+};
+
+export const checkIn = async (payload: PunchPayload) => {
+  const response = await api.post('/attendance/checkin', payload);
+  return response.data.data as AttendanceRecord;
+};
+
+export const afternoonConfirm = async (payload: PunchPayload) => {
+  const response = await api.post('/attendance/afternoon', payload);
+  return response.data.data as AttendanceRecord;
+};
+
+export const checkOut = async (payload: PunchPayload) => {
+  const response = await api.post('/attendance/checkout', payload);
+  return response.data.data as AttendanceRecord;
+};
+
+export const punchEndpoint: Record<AttendanceEventType, (p: PunchPayload) => Promise<AttendanceRecord>> = {
+  check_in: checkIn,
+  afternoon_confirm: afternoonConfirm,
+  check_out: checkOut,
 };
 
 export const fetchAttendance = async (params?: Record<string, unknown>) => {
@@ -39,8 +78,9 @@ export const rejectAttendance = async (id: string, reason: string) => {
 };
 
 export const fetchEmployeeAttendanceHistory = async (employeeId: string) => {
-  const response = await api.get(`/attendance/employee/${employeeId}/history`);
-  return response.data;
+  const response = await api.get(`/attendance/employee/${employeeId}/history`, { params: { limit: 100 } });
+  const body = response.data;
+  return (body.data?.data ?? body.data ?? []) as AttendanceRecord[];
 };
 
 export const EVENT_TYPE_LABELS: Record<AttendanceEventType, string> = {
