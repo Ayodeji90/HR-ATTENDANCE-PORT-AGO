@@ -10,7 +10,8 @@ review:
 | Admin dashboard | **Netlify** | Free | Static Vite build, SPA redirects via `netlify.toml` |
 | Mobile app | Debug/Release APK | Free | Built on your machine, shared as a file |
 
-Demo logins (seeded automatically on first Render deploy):
+Demo logins (seeded automatically — the seed is idempotent and runs on every
+Render deploy, skipping if the database already has users):
 
 - Admin: `admin@geotrackhr.com` / `Admin@123`
 - Employees: `james.wilson@demo.com`, `maria.garcia@demo.com`, `robert.chen@demo.com` — all `Employee@123`
@@ -57,16 +58,17 @@ the Postgres database (`geotrackhr-db`) and the API web service
      react-native app).
    - `startCommand`:
      `NODE_OPTIONS=--no-experimental-detect-module node dist/database/migrate.js
-     && NODE_OPTIONS=--no-experimental-detect-module node dist/server.js` —
-     applies all migrations, then boots the API (knex migrations are
-     idempotent, so running them on every start is safe). Migrations are
-     chained into the start command because Render's `preDeployCommand` is
-     **not supported on the free tier**. The `NODE_OPTIONS` prefix disables
-     Node's ESM syntax detection (defense-in-depth; see Troubleshooting).
-   - `initialDeployHook`: `NODE_OPTIONS=--no-experimental-detect-module node
-     dist/database/seed.js` — inserts demo roles, admin + employee logins,
-     and 2 demo sites (runs once, after the first successful deploy;
-     supported on free tier)
+     && NODE_OPTIONS=--no-experimental-detect-module node
+     dist/database/seed.js && NODE_OPTIONS=--no-experimental-detect-module node
+     dist/server.js` — applies all migrations, inserts demo data (roles, admin
+     + employee logins, 2 demo sites), then boots the API. Both steps are
+     safe on every start: knex migrations are idempotent, and `seed.js`
+     **skips** when the `users` table already has rows (pass `--force` to
+     wipe & re-seed) — so a populated database is never touched. Migrations
+     and seeding are chained into the start command because Render's
+     `preDeployCommand` is **not supported on the free tier**. The
+     `NODE_OPTIONS` prefix disables Node's ESM syntax detection
+     (defense-in-depth; see Troubleshooting).
 
 6. **Verify:** open `https://geotrackhr-api.onrender.com/api/health` →
    `{"success":true,..."status":"healthy"}`.
@@ -221,18 +223,27 @@ harmless; the app name shown is "GeoTrackHR".
 - **CORS errors in the browser console** — confirm `CORS_ORIGIN` on Render
   matches the exact Netlify URL (scheme + host, no trailing slash), then
   redeploy.
-- **Empty dashboard data** — check that the deploy logs show the migrations
-  (run inside `startCommand`) and seed (`initialDeployHook`) ran
-  successfully. To re-seed from your machine, use the **External Database
-  URL** from the
-  Render Postgres dashboard (the blueprint-injected `DATABASE_URL` is
-  private-network only and unreachable from a laptop), and leave
-  `NODE_ENV` unset so the runner uses the TS migration/seed files:
+- **Login fails with `401 INVALID_CREDENTIALS` even with the seeded
+  credentials** — the seed is idempotent and runs on **every** deploy inside
+  `startCommand` (after migrations), so the next deploy after this change
+  will populate the database automatically. If the API was already deployed
+  and the DB is still empty, just trigger **Deploy → Deploy latest commit**
+  (or push a new commit) and watch the log for `[seed] ... skipping` vs the
+  `Seed files run:` line. To seed manually from your machine, use the
+  **External Database URL** from the Render Postgres dashboard (the
+  blueprint-injected `DATABASE_URL` is private-network only and unreachable
+  from a laptop), and leave `NODE_ENV` unset so the runner uses the TS
+  migration/seed files:
   ```bash
   cd geotrackhr-backend
   DATABASE_URL="postgres://...@..." npm run db:migrate
   DATABASE_URL="postgres://...@..." npm run db:seed
   ```
+  (Add `-- --force` to `npm run db:seed` to wipe and re-seed.)
+- **Empty dashboard data** — check that the deploy logs show the migrations
+  and seed (`[migrate]` / `[seed]` lines) ran successfully inside
+  `startCommand`, and confirm the `users` table isn't empty via the seed's
+  "skipping" message on a redeploy.
 - **Backend offline** — free Render instances sleep; just wait ~1 min on the
   first request of the day.
 - **Netlify fails with `npm error Missing script: "build"`** — the root

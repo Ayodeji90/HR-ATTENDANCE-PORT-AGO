@@ -45,21 +45,21 @@ services:
     # production config uses extension 'cjs' to match.
     buildCommand: npm install --workspace geotrackhr-backend --include=dev && npm run build && node scripts/to-cjs.js
     # Migrations run before the server starts (knex is idempotent, so this is
-    # safe on every start). NOTE: preDeployCommand is NOT supported on free
-    # tier, so migrations run inside startCommand instead.
+    # safe on every start). The demo seed (admin + demo employees/sites) runs
+    # after migrations on EVERY deploy, but seed.js is idempotent: it skips
+    # when the users table already has rows (--force wipes & re-seeds), so a
+    # populated database is never touched. This replaces the one-shot
+    # initialDeployHook, which only fired on the service's very first deploy
+    # and never actually seeded the DB.
+    # NOTE: preDeployCommand is NOT supported on free tier, so migrations run
+    # inside startCommand instead.
     # NODE_OPTIONS=--no-experimental-detect-module disables Node's ESM syntax
     # detection, which otherwise misclassifies knex's compiled migration files
     # as ESM and dies with "Unexpected token '{'" in import-file.js. If a
     # future Node drops/renames the flag, the deploy fails loudly with a clear
     # "bad option" error — remove it then.
-    startCommand: NODE_OPTIONS=--no-experimental-detect-module node dist/database/migrate.js && NODE_OPTIONS=--no-experimental-detect-module node dist/server.js
+    startCommand: NODE_OPTIONS=--no-experimental-detect-module node dist/database/migrate.js && NODE_OPTIONS=--no-experimental-detect-module node dist/database/seed.js && NODE_OPTIONS=--no-experimental-detect-module node dist/server.js
     healthCheckPath: /api/health
-    # Demo seed data (admin + demo employees/sites) is inserted once, after
-    # the first successful deploy. It truncates the tables, so it must NOT
-    # run on every deploy — hence initialDeployHook (supported on free tier).
-    # Same NODE_OPTIONS as startCommand: seeds go through knex's import-file
-    # loader in a separate process and need detection disabled too.
-    initialDeployHook: NODE_OPTIONS=--no-experimental-detect-module node dist/database/seed.js
     envVars:
       - key: NODE_ENV
         value: production
