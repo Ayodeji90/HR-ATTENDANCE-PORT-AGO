@@ -26,7 +26,12 @@ services:
     branch: testing
     region: oregon
     plan: free
-    buildCommand: npm install --workspace geotrackhr-backend && npm run build
+    # --include=dev is required: Render sets NODE_ENV=production during
+    # builds, which otherwise makes npm skip devDependencies (typescript,
+    # tsc-alias, @types/*) and the build fails.
+    # typescript is pinned to an exact version (5.9.3) in package.json — if
+    # it's ever bumped, verify tsc-alias supports the new major before pushing.
+    buildCommand: npm install --workspace geotrackhr-backend --include=dev && npm run build
     # Migrations run before the server starts (knex is idempotent, so this is
     # safe on every start). NOTE: preDeployCommand is NOT supported on free
     # tier, so migrations run inside startCommand instead.

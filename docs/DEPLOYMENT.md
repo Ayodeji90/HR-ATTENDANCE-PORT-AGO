@@ -44,9 +44,13 @@ the Postgres database (`geotrackhr-db`) and the API web service
 
    What happens automatically on the first deploy (configured in the
    blueprint):
-   - `buildCommand`: `npm install --workspace geotrackhr-backend && npm run build`
-     (the repo is an npm monorepo — the `--workspace` flag keeps the install
-     scoped to the backend instead of also pulling the react-native app)
+   - `buildCommand`: `npm install --workspace geotrackhr-backend --include=dev
+     && npm run build`. The `--include=dev` flag is required because Render
+     sets `NODE_ENV=production` during builds, which otherwise makes npm skip
+     devDependencies (`typescript`, `tsc-alias`, `@types/*`) and the build
+     fails. The `--workspace` flag keeps the install scoped to the backend
+     (the repo is an npm monorepo — a plain install would also pull the
+     react-native app).
    - `startCommand`: `node dist/database/migrate.js && node dist/server.js` —
      applies all migrations, then boots the API (knex migrations are
      idempotent, so running them on every start is safe). Migrations are
