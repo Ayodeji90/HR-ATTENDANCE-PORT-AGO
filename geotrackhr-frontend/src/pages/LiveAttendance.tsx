@@ -423,7 +423,7 @@ const LiveAttendance: React.FC = () => {
                   </Button>
                 </div>
               </div>
-            ) : cameraState === 'live' ? (
+            ) : cameraState === 'starting' || cameraState === 'live' ? (
               <div>
                 <div className="relative overflow-hidden rounded-md bg-ink-950">
                   <video
@@ -440,7 +440,7 @@ const LiveAttendance: React.FC = () => {
                   )}
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={captureSelfie}>
+                  <Button size="sm" onClick={captureSelfie} disabled={cameraState === 'starting'}>
                     <Camera size={15} /> Capture
                   </Button>
                   <Button variant="secondary" size="sm" onClick={stopCamera}>
@@ -463,7 +463,7 @@ const LiveAttendance: React.FC = () => {
                 <p className="text-sm text-ink-400">
                   Capture a live photo of yourself — it's stored with your punch as proof of attendance.
                 </p>
-                <Button size="sm" loading={cameraState === 'starting'} onClick={startCamera}>
+                <Button size="sm" onClick={startCamera}>
                   <Video size={15} /> Start camera
                 </Button>
               </div>
