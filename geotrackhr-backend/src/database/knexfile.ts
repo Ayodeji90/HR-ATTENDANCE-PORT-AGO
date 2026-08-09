@@ -80,15 +80,18 @@ const config: Record<string, Knex.Config> = {
     },
     migrations: {
       directory: path.resolve(__dirname, 'migrations'),
-      // Compiled migrations/seeds are renamed to .cjs by scripts/to-cjs.js
-      // (see the buildCommand in render.yaml) so Node's ESM syntax detection
-      // can never misclassify them. Development keeps 'ts' (tsx runner).
+      // Only load .cjs files. knex's DEFAULT_LOAD_EXTENSIONS also matches
+      // '.ts', which used to pick up the .d.ts declaration files tsc emitted
+      // and crash with "Unexpected token '{'" (knex tried to require() the
+      // .d.ts). tsc no longer emits declarations, and this list is the guard.
       extension: 'cjs',
+      loadExtensions: ['.cjs'],
       tableName: 'knex_migrations',
     },
     seeds: {
       directory: path.resolve(__dirname, 'seeds'),
       extension: 'cjs',
+      loadExtensions: ['.cjs'],
     },
   },
 };

@@ -51,7 +51,22 @@ for (const dir of dirs) {
   }
 }
 
-console.log(`[to-cjs] renamed ${renamed} compiled migration/seed file(s) to .cjs`);
+// Remove stale declaration/sourcemap files — knex's default load list
+// matches '.ts', so a leftover .d.ts next to a migration would be loaded as
+// a migration and crash ("Unexpected token '{'" / "no export named 'Knex'").
+const junkSuffixes = ['.d.ts', '.d.ts.map', '.js.map'];
+let removed = 0;
+for (const dir of dirs) {
+  if (!fs.existsSync(dir)) continue;
+  for (const file of fs.readdirSync(dir)) {
+    if (junkSuffixes.some((s) => file.endsWith(s))) {
+      fs.unlinkSync(path.join(dir, file));
+      removed++;
+    }
+  }
+}
+
+console.log(`[to-cjs] renamed ${renamed} compiled migration/seed file(s) to .cjs (removed ${removed} stale .d.ts/.map files)`);
 if (renamed === 0) {
   console.error('[to-cjs] ERROR: no .js migration/seed files found to rename — build layout changed?');
   process.exit(1);

@@ -51,14 +51,18 @@ the Postgres database (`geotrackhr-db`) and the API web service
      fails. The `--workspace` flag keeps the install scoped to the backend
      (the repo is an npm monorepo — a plain install would also pull the
      react-native app).
-   - `startCommand`: `node dist/database/migrate.js && node dist/server.js` —
+   - `startCommand`:
+     `NODE_OPTIONS=--no-experimental-detect-module node dist/database/migrate.js
+     && NODE_OPTIONS=--no-experimental-detect-module node dist/server.js` —
      applies all migrations, then boots the API (knex migrations are
      idempotent, so running them on every start is safe). Migrations are
      chained into the start command because Render's `preDeployCommand` is
-     **not supported on the free tier**.
-   - `initialDeployHook`: `node dist/database/seed.js` — inserts demo roles,
-     admin + employee logins, and 2 demo sites (runs once, after the first
-     successful deploy; supported on free tier)
+     **not supported on the free tier**. The `NODE_OPTIONS` prefix disables
+     Node's ESM syntax detection (defense-in-depth; see Troubleshooting).
+   - `initialDeployHook`: `NODE_OPTIONS=--no-experimental-detect-module node
+     dist/database/seed.js` — inserts demo roles, admin + employee logins,
+     and 2 demo sites (runs once, after the first successful deploy;
+     supported on free tier)
 
 6. **Verify:** open `https://geotrackhr-api.onrender.com/api/health` →
    `{"success":true,..."status":"healthy"}`.
@@ -167,37 +171,28 @@ harmless; the app name shown is "GeoTrackHR".
 
 ## Troubleshooting
 
-- **Deploy fails with `The requested module 'knex' does not provide an export
-  named 'Knex'`** — knex 3.x + Node ≥22.7/24 incompatibility (Render's Node 24
-  default trips ESM syntax detection / `require(esm)`; the error appears in
-  `loadESMFromCJS`). Fixed by pinning the Node version to `20.x` via
-  `"engines"` in `geotrackhr-backend/package.json` — Node 20's CJS loader
-  loads knex 3.x fine. If you ever bump the engine, keep it < 22.7, or
-  downgrade knex to `2.5.1` (pure CJS) and re-sync `package-lock.json` with
-  `npm install` (the lockfile pins knex 3.3.0, so a package.json change alone
-  is not enough).
-- **Deploy fails with `SyntaxError: Unexpected token '{'` at
-  `knex/lib/migrations/util/import-file.js`** — Node's ESM syntax detection
-  misclassifies the compiled migrations/seeds as ESM, and knex's migration
-  loader (`import-file.js`) then fails to parse them. Fixed with **four
-  independent layers** so at least one always wins:
-  1. `"engines": { "node": "20.x" }` — older major with saner CJS loading;
-  2. `"type": "commonjs"` in `geotrackhr-backend/package.json`;
-  3. buildCommand ends with `node scripts/to-cjs.js`, which renames the
-     compiled migrations/seeds to `.cjs` (an extension Node **always**
-     treats as CommonJS) and drops `{ "type": "commonjs" }` package.json
-     markers into the dist trees; the knexfile production config uses
-     `extension: 'cjs'` to match;
-  4. `startCommand` (and the `initialDeployHook` seed, which loads files the
-     same way in a separate process) run with
-     `NODE_OPTIONS=--no-experimental-detect-module`, which disables the ESM
-     syntax detection entirely. If a future Node drops the flag, the deploy
-     fails loudly with "bad option" — then pin `engines` to a pre-detection
-     Node (e.g. `22.6.x`) instead.
-  The migrate/seed runners also log the exact migrations dir + file listing
-  on boot, so any future failure shows the real server state in the deploy
-  log instead of a bare SyntaxError. Development (`npm run db:migrate` via
-  tsx) is unaffected (uses `ts`).
+- **Deploy fails at `knex/lib/migrations/util/import-file.js` with either
+  `SyntaxError: Unexpected token '{'` or `The requested module 'knex' does
+  not provide an export named 'Knex'`** — **root cause (finally):** knex's
+  `DEFAULT_LOAD_EXTENSIONS` includes `'.ts'`, and `path.extname('foo.d.ts')`
+  returns `'.ts'` — so the `.d.ts` declaration files tsc emitted next to
+  each compiled migration were being loaded **as migrations** and
+  `require()`d. Node falls back to its `.js` handler for a `.d.ts` file
+  (the `Module._extensions..js` frame), sees TypeScript `import`/`export`
+  syntax, and crashes. Both error messages were this same bug.
+  Fixed with three layers:
+  1. `geotrackhr-backend/tsconfig.json`: `"declaration": false` — tsc no
+     longer emits `.d.ts` files at all (a server app doesn't need them);
+  2. knexfile production config sets `loadExtensions: ['.cjs']` for both
+     migrations and seeds, so knex can only ever load the compiled `.cjs`
+     files;
+  3. `scripts/to-cjs.js` (last step of the buildCommand) renames compiled
+     `.js` → `.cjs` **and deletes** stale `.d.ts` / `.d.ts.map` / `.js.map`
+     files from the migrations/seeds dirs.
+  The migrate/seed runners log the exact migrations dir + file listing on
+  boot (see the `[migrate]` lines), so any future failure shows the real
+  server state in the deploy log. Development (`npm run db:migrate` via
+  tsx) is unaffected (uses `ts` sources directly).
 - **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
   uses a self-signed cert on its internal connection string; the blueprint
   sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace
