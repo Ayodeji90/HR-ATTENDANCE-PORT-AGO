@@ -80,12 +80,15 @@ const config: Record<string, Knex.Config> = {
     },
     migrations: {
       directory: path.resolve(__dirname, 'migrations'),
-      extension: 'js',
+      // Compiled migrations/seeds are renamed to .cjs by scripts/to-cjs.js
+      // (see the buildCommand in render.yaml) so Node's ESM syntax detection
+      // can never misclassify them. Development keeps 'ts' (tsx runner).
+      extension: 'cjs',
       tableName: 'knex_migrations',
     },
     seeds: {
       directory: path.resolve(__dirname, 'seeds'),
-      extension: 'js',
+      extension: 'cjs',
     },
   },
 };

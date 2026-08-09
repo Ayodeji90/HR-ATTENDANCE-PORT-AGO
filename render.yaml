@@ -39,7 +39,11 @@ services:
     # tsc-alias, @types/*) and the build fails.
     # typescript is pinned to an exact version (5.9.3) in package.json — if
     # it's ever bumped, verify tsc-alias supports the new major before pushing.
-    buildCommand: npm install --workspace geotrackhr-backend --include=dev && npm run build
+    # The final 'node scripts/to-cjs.js' renames the compiled migration/seed
+    # files to .cjs so Node's ESM syntax detection can never misclassify them
+    # (fixes "Unexpected token '{'" in knex's import-file.js). knexfile
+    # production config uses extension 'cjs' to match.
+    buildCommand: npm install --workspace geotrackhr-backend --include=dev && npm run build && node scripts/to-cjs.js
     # Migrations run before the server starts (knex is idempotent, so this is
     # safe on every start). NOTE: preDeployCommand is NOT supported on free
     # tier, so migrations run inside startCommand instead.
