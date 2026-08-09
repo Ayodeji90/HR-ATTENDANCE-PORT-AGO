@@ -193,6 +193,16 @@ harmless; the app name shown is "GeoTrackHR".
   boot (see the `[migrate]` lines), so any future failure shows the real
   server state in the deploy log. Development (`npm run db:migrate` via
   tsx) is unaffected (uses `ts` sources directly).
+- **Service restarts in a loop — health checks return `429 Too Many
+  Requests`** — the global `express-rate-limit` middleware (100 req/IP/15
+  min by default) was registered **before** the `/api/health` route, and
+  Render's health check fires every 5 s (~180 req/15 min) — so the health
+  check alone exhausted the per-IP budget, the app returned 429s, Render
+  classified the service as unhealthy and restarted it (SIGTERM), resetting
+  the in-memory counter — repeat forever. Fixed by registering the health
+  route **above** the rate limiter in `geotrackhr-backend/src/app.ts`, so
+  health checks bypass it entirely. If you ever add another
+  infrastructure-polled endpoint, register it before the limiter too.
 - **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
   uses a self-signed cert on its internal connection string; the blueprint
   sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace

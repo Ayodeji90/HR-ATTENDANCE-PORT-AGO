@@ -27,6 +27,8 @@ import reportRoutes from '@modules/report/report.routes';
  * 5. express.json() — parse JSON request bodies
  * 6. express.urlencoded() — parse form-encoded bodies
  * 7. Rate limiter — brute-force / DDoS protection
+ *    (the health check is registered ABOVE this layer so Render's
+ *    frequent health checks can never exhaust the per-IP budget)
  * 8. Routes — mounted by feature modules (auth, employees, sites, etc.)
  * 9. 404 handler — catch unmatched routes
  * 10. Error handler — centralized error response formatting
@@ -64,6 +66,23 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── Health check (no auth, no rate limit) ──────────────
+// Registered BEFORE the rate limiter on purpose: Render's health check
+// hits this endpoint every 5s (~180 req/15min), which would exceed the
+// per-IP rate limit budget (default max 100) and return 429s, making
+// Render kill the service as "unhealthy". Health checks must always win.
+app.get('/api/health', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: config.app.nodeEnv,
+    },
+  });
+});
+
 // ── Rate limiting ──────────────────────────────────────
 app.use(
   rateLimit({
@@ -80,19 +99,6 @@ app.use(
     },
   })
 );
-
-// ── Health check (no auth required) ────────────────────
-app.get('/api/health', (_req, res) => {
-  res.json({
-    success: true,
-    data: {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: config.app.nodeEnv,
-    },
-  });
-});
 
 // ── API routes ─────────────────────────────────────────
 app.use('/api/auth', authRoutes);
