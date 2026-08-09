@@ -176,6 +176,14 @@ harmless; the app name shown is "GeoTrackHR".
   downgrade knex to `2.5.1` (pure CJS) and re-sync `package-lock.json` with
   `npm install` (the lockfile pins knex 3.3.0, so a package.json change alone
   is not enough).
+- **Deploy fails with `SyntaxError: Unexpected token '{'` at
+  `knex/lib/migrations/util/import-file.js`** — Node's ESM syntax detection
+  misclassifies the compiled `.js` migrations in `dist/database/migrations`
+  (the backend package had no `"type"` field, so the files were
+  "ambiguous"). Fixed by declaring `"type": "commonjs"` in
+  `geotrackhr-backend/package.json` — the package is now unambiguous, and
+  knex `require()`s the migrations **and seed files** (both go through the
+  same `import-file.js` loader) as plain CommonJS.
 - **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
   uses a self-signed cert on its internal connection string; the blueprint
   sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace

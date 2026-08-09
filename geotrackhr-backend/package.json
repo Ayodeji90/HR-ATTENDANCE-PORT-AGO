@@ -4,6 +4,7 @@
   "private": true,
   "description": "GeoTrackHR Backend API Server",
   "main": "dist/server.js",
+  "type": "commonjs",
   "engines": {
     "node": "20.x"
   },
