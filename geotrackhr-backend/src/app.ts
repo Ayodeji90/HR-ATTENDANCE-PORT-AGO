@@ -41,7 +41,8 @@ app.use(helmet());
 // ── CORS ───────────────────────────────────────────────
 app.use(
   cors({
-    origin: config.cors.origin,
+    // Spread to satisfy cors' Origin type ((string | RegExp)[]).
+    origin: [...config.cors.origin],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id'],

@@ -10,12 +10,9 @@
 # VITE_API_BASE_URL (build-time env var — Vite bakes VITE_* vars into the
 # bundle, so it must point at the production backend BEFORE the build runs).
 #
-# Source of truth: the Netlify dashboard (Site settings → Environment
-# variables) — it takes precedence over this file and is easier to change.
-#
-# Uncomment the block below ONLY after your Render service is live and you've
-# confirmed its actual subdomain (Render appends a suffix if the blueprint
-# name "geotrackhr-api" is already taken):
+# The repo ships geotrackhr-frontend/.env.production with this value, so no
+# block is needed here. A Netlify dashboard variable (Site settings →
+# Environment variables) takes precedence over .env.production if ever set.
 #
 # [build.environment]
 #   VITE_API_BASE_URL = "https://geotrackhr-api.onrender.com/api"

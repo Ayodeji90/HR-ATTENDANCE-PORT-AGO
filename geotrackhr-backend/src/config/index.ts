@@ -51,7 +51,16 @@ export const config = {
     maxFileSize: Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024, // 10MB
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    // Comma-separated allowlist of allowed origins. The default covers local
+    // dev (Vite on :5173) and the hosted Netlify frontend, so the app works
+    // out of the box after a redeploy. Setting CORS_ORIGIN overrides the
+    // default (comma-separated list supported).
+    origin: (
+      process.env.CORS_ORIGIN || 'http://localhost:5173,https://hrportago.netlify.app'
+    )
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   },
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 min

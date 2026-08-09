@@ -36,6 +36,10 @@ the Postgres database (`geotrackhr-db`) and the API web service
 4. During creation Render asks for the env var `CORS_ORIGIN` (it's marked
    `sync: false` in the blueprint). Enter your **Netlify URL**, e.g.
    `https://<your-site>.netlify.app` — scheme + host, **no trailing slash**.
+   This step is **optional**: the code default already allows
+   `http://localhost:5173` **and** `https://hrportago.netlify.app` (see
+   `geotrackhr-backend/src/config/index.ts`); setting `CORS_ORIGIN` overrides
+   the default (comma-separated list supported).
    `JWT_SECRET` / `JWT_REFRESH_SECRET` are generated automatically by Render.
 5. **Apply / Deploy.** The API becomes live at
    `https://geotrackhr-api.onrender.com` (Render assigns the subdomain from
@@ -84,7 +88,7 @@ the Postgres database (`geotrackhr-db`) and the API web service
 | `DATABASE_URL` | Blueprint | Auto-wired to `geotrackhr-db` (private network) |
 | `DB_SSL_REJECT_UNAUTHORIZED` | Blueprint | `false` — trust Render's self-signed DB cert (required) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Blueprint | `generateValue: true` |
-| `CORS_ORIGIN` | You, at creation | Your Netlify URL (prompted) |
+| `CORS_ORIGIN` | Optional | Comma-separated allowlist; defaults to `localhost:5173` + the Netlify URL |
 | `PORT` | Render | Injected automatically; `server.ts` already binds `0.0.0.0` |
 
 If you need to change `CORS_ORIGIN` later, edit it in the Render dashboard
@@ -103,13 +107,13 @@ build command, publish directory, and an SPA redirect so deep links
    - **Root directory:** `geotrackhr-frontend`
    - Build settings come from `netlify.toml` automatically
      (`npm run build` / publish `dist`).
-3. **Environment variable** (Site settings → Environment variables):
-   `VITE_API_BASE_URL` = `https://geotrackhr-api.onrender.com/api`
+3. **(Optional) Environment variable** (Site settings → Environment
+   variables): `VITE_API_BASE_URL` = `https://geotrackhr-api.onrender.com/api`
    (use your **actual** Render URL — the subdomain is only `geotrackhr-api`
-   if that name wasn't already taken).
-   - The `netlify.toml` `[build.environment]` block is left commented out on
-     purpose: the dashboard variable is the single source of truth and wins
-     over `netlify.toml` anyway.
+   if that name wasn't already taken). The repo already ships
+   `geotrackhr-frontend/.env.production` with this exact value, so **no
+   dashboard step is required** — a dashboard variable just overrides the
+   repo default if you ever set one.
 4. **Deploy.** You get `https://<your-site>.netlify.app`.
 5. **Verify the connection:** open the Netlify URL, log in with
    `admin@geotrackhr.com` / `Admin@123`, and confirm the dashboard loads data.

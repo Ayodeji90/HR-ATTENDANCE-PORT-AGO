@@ -4,8 +4,9 @@ import { useAuthStore } from '@/store/authStore';
 /**
  * API base URL.
  * - Development: Vite proxies /api → http://localhost:3000 (vite.config.ts).
- * - Production: set VITE_API_BASE_URL at build time, e.g.
- *   VITE_API_BASE_URL=https://geotrackhr-api.onrender.com/api
+ * - Production: VITE_API_BASE_URL is baked in at build time. The repo ships
+ *   .env.production pointing at the Render backend, and a Netlify dashboard
+ *   variable overrides it if ever set.
  */
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || '/api';
 

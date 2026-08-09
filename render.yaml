@@ -81,7 +81,9 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      # Prompted at blueprint creation — paste your Netlify URL here.
-      # The backend refuses cross-origin requests from any other origin.
+      # OPTIONAL override — if set, a comma-separated allowlist of allowed
+      # origins. If left empty, the code default already allows
+      # http://localhost:5173 and https://hrportago.netlify.app (see
+      # geotrackhr-backend/src/config/index.ts).
       - key: CORS_ORIGIN
         sync: false
