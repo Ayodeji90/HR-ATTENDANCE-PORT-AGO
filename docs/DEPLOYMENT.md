@@ -98,15 +98,18 @@ If you need to change `CORS_ORIGIN` later, edit it in the Render dashboard
 
 ## 2. Frontend — Netlify
 
-The repo already contains `geotrackhr-frontend/netlify.toml`, which sets the
-build command, publish directory, and an SPA redirect so deep links
-(`/login`, `/dashboard`, …) don't 404.
+The repo contains a **root-level** `netlify.toml` that sets
+`base = "geotrackhr-frontend"` (so Netlify runs the build **inside** the
+frontend package — required because the root `package.json` is a workspaces
+aggregator with no `build` script), the build command, publish directory,
+and an SPA redirect so deep links (`/login`, `/dashboard`, …) don't 404.
 
 1. Create a free account at <https://netlify.com>.
 2. **Add new site → Import an existing project** → connect the GitHub repo.
-   - **Root directory:** `geotrackhr-frontend`
-   - Build settings come from `netlify.toml` automatically
-     (`npm run build` / publish `dist`).
+   The root `netlify.toml` already sets everything (`base` = the frontend
+   package, `npm run build`, publish `dist`, SPA redirect) — so leave the UI
+   **Base directory** empty (or set it to `geotrackhr-frontend` to match; a
+   conflicting value would break the build).
 3. **(Optional) Environment variable** (Site settings → Environment
    variables): `VITE_API_BASE_URL` = `https://geotrackhr-api.onrender.com/api`
    (use your **actual** Render URL — the subdomain is only `geotrackhr-api`
@@ -232,8 +235,19 @@ harmless; the app name shown is "GeoTrackHR".
   ```
 - **Backend offline** — free Render instances sleep; just wait ~1 min on the
   first request of the day.
-- **Deep links 404 on Netlify** — make sure `netlify.toml` is deployed (the
-  SPA redirect lives there).
+- **Netlify fails with `npm error Missing script: "build"`** — the root
+  `package.json` has no `build` script (it only has `build:frontend`), so
+  the build must run inside `geotrackhr-frontend`. The root `netlify.toml`
+  forces this with `base = "geotrackhr-frontend"`. If the error reappears:
+  (1) confirm the UI Base directory is empty or `geotrackhr-frontend`;
+  (2) delete any leftover `geotrackhr-frontend/netlify.toml` so only the
+  root config exists.
+- **Netlify build fails with `tsc: command not found`** — don't set
+  `NODE_ENV=production` in the Netlify environment variables: it makes npm
+  skip devDependencies (`typescript`, `vite`) during install, so the build
+  script cannot run.
+- **Deep links 404 on Netlify** — make sure the root `netlify.toml` is
+  deployed (the SPA redirect lives there).
 - **Postgres deleted after 30 days** — free Render Postgres expires; upgrade
   the database plan or move `DATABASE_URL` to another provider (Neon) before
   it happens.

@@ -1,0 +1,28 @@
+# Netlify deployment configuration for the GeoTrackHR monorepo.
+#
+# This repo is an npm-workspaces monorepo, so the build must run INSIDE the
+# frontend package. `base` tells Netlify to cd into geotrackhr-frontend
+# before running the build command and to resolve `publish` relative to it.
+# (Without `base`, Netlify's monorepo auto-detection runs the command at the
+# repo root, where there is no `build` script → "Missing script: build".)
+
+[build]
+  base = "geotrackhr-frontend"
+  command = "npm run build"
+  publish = "dist"
+
+# VITE_API_BASE_URL is a build-time env var — Vite bakes VITE_* vars into the
+# bundle, so it must point at the production backend BEFORE the build runs.
+# The repo ships geotrackhr-frontend/.env.production with this value, so no
+# block is needed here. A Netlify dashboard variable (Site settings →
+# Environment variables) takes precedence over .env.production if ever set.
+#
+# [build.environment]
+#   VITE_API_BASE_URL = "https://geotrackhr-api.onrender.com/api"
+
+# SPA redirect: every route (e.g. /login, /dashboard, /employees/123) serves
+# index.html so client-side routing works on refresh and deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
