@@ -178,15 +178,26 @@ harmless; the app name shown is "GeoTrackHR".
   is not enough).
 - **Deploy fails with `SyntaxError: Unexpected token '{'` at
   `knex/lib/migrations/util/import-file.js`** — Node's ESM syntax detection
-  misclassifies the compiled `.js` migrations/seeds in `dist/database/`
-  (files are "ambiguous" without an explicit package `"type"`, and the
-  migrations' `await` lines trip the detector). Two layers fix it:
-  1. `"type": "commonjs"` in `geotrackhr-backend/package.json`;
-  2. the Render buildCommand ends with `node scripts/to-cjs.js`, which
-     renames the compiled migrations/seeds to `.cjs` — an extension Node
-     **always** treats as CommonJS, no matter the package.json. The
-     knexfile production config uses `extension: 'cjs'` to load them.
-  Development (`npm run db:migrate` via tsx) is unaffected (uses `ts`).
+  misclassifies the compiled migrations/seeds as ESM, and knex's migration
+  loader (`import-file.js`) then fails to parse them. Fixed with **four
+  independent layers** so at least one always wins:
+  1. `"engines": { "node": "20.x" }` — older major with saner CJS loading;
+  2. `"type": "commonjs"` in `geotrackhr-backend/package.json`;
+  3. buildCommand ends with `node scripts/to-cjs.js`, which renames the
+     compiled migrations/seeds to `.cjs` (an extension Node **always**
+     treats as CommonJS) and drops `{ "type": "commonjs" }` package.json
+     markers into the dist trees; the knexfile production config uses
+     `extension: 'cjs'` to match;
+  4. `startCommand` (and the `initialDeployHook` seed, which loads files the
+     same way in a separate process) run with
+     `NODE_OPTIONS=--no-experimental-detect-module`, which disables the ESM
+     syntax detection entirely. If a future Node drops the flag, the deploy
+     fails loudly with "bad option" — then pin `engines` to a pre-detection
+     Node (e.g. `22.6.x`) instead.
+  The migrate/seed runners also log the exact migrations dir + file listing
+  on boot, so any future failure shows the real server state in the deploy
+  log instead of a bare SyntaxError. Development (`npm run db:migrate` via
+  tsx) is unaffected (uses `ts`).
 - **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
   uses a self-signed cert on its internal connection string; the blueprint
   sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace

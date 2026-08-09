@@ -21,6 +21,23 @@ const dirs = [
   path.resolve(__dirname, '../dist/database/seeds'),
 ];
 
+// Drop a package.json with "type": "commonjs" into the dist trees so ANY
+// .js file Node might load from there is unambiguous CommonJS (even if the
+// rename below misses one or a future build stops emitting .cjs).
+const markerDirs = [
+  path.resolve(__dirname, '../dist'),
+  path.resolve(__dirname, '../dist/database'),
+  ...dirs,
+];
+for (const dir of markerDirs) {
+  if (fs.existsSync(dir)) {
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ type: 'commonjs' }, null, 2) + '\n',
+    );
+  }
+}
+
 let renamed = 0;
 for (const dir of dirs) {
   if (!fs.existsSync(dir)) continue;

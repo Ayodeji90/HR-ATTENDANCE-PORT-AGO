@@ -47,12 +47,19 @@ services:
     # Migrations run before the server starts (knex is idempotent, so this is
     # safe on every start). NOTE: preDeployCommand is NOT supported on free
     # tier, so migrations run inside startCommand instead.
-    startCommand: node dist/database/migrate.js && node dist/server.js
+    # NODE_OPTIONS=--no-experimental-detect-module disables Node's ESM syntax
+    # detection, which otherwise misclassifies knex's compiled migration files
+    # as ESM and dies with "Unexpected token '{'" in import-file.js. If a
+    # future Node drops/renames the flag, the deploy fails loudly with a clear
+    # "bad option" error — remove it then.
+    startCommand: NODE_OPTIONS=--no-experimental-detect-module node dist/database/migrate.js && NODE_OPTIONS=--no-experimental-detect-module node dist/server.js
     healthCheckPath: /api/health
     # Demo seed data (admin + demo employees/sites) is inserted once, after
     # the first successful deploy. It truncates the tables, so it must NOT
     # run on every deploy — hence initialDeployHook (supported on free tier).
-    initialDeployHook: node dist/database/seed.js
+    # Same NODE_OPTIONS as startCommand: seeds go through knex's import-file
+    # loader in a separate process and need detection disabled too.
+    initialDeployHook: NODE_OPTIONS=--no-experimental-detect-module node dist/database/seed.js
     envVars:
       - key: NODE_ENV
         value: production
