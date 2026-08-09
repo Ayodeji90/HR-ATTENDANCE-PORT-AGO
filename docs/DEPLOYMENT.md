@@ -167,6 +167,15 @@ harmless; the app name shown is "GeoTrackHR".
 
 ## Troubleshooting
 
+- **Deploy fails with `The requested module 'knex' does not provide an export
+  named 'Knex'`** — knex 3.x + Node ≥22.7/24 incompatibility (Render's Node 24
+  default trips ESM syntax detection / `require(esm)`; the error appears in
+  `loadESMFromCJS`). Fixed by pinning the Node version to `20.x` via
+  `"engines"` in `geotrackhr-backend/package.json` — Node 20's CJS loader
+  loads knex 3.x fine. If you ever bump the engine, keep it < 22.7, or
+  downgrade knex to `2.5.1` (pure CJS) and re-sync `package-lock.json` with
+  `npm install` (the lockfile pins knex 3.3.0, so a package.json change alone
+  is not enough).
 - **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
   uses a self-signed cert on its internal connection string; the blueprint
   sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace

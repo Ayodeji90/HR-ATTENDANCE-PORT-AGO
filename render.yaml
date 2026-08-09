@@ -26,6 +26,11 @@ services:
     branch: testing
     region: oregon
     plan: free
+    # Node version comes from "engines" in geotrackhr-backend/package.json
+    # (pinned to 20.x). Do NOT let Render use its Node 24 default: knex 3.x
+    # trips Node 22.7+/24's ESM syntax detection / require(esm) and the app
+    # dies with "The requested module 'knex' does not provide an export named
+    # 'Knex'". Node 20 loads knex's pure-CJS tree without that machinery.
     # --include=dev is required: Render sets NODE_ENV=production during
     # builds, which otherwise makes npm skip devDependencies (typescript,
     # tsc-alias, @types/*) and the build fails.
