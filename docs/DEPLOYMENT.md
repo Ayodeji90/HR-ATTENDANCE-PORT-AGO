@@ -78,6 +78,7 @@ the Postgres database (`geotrackhr-db`) and the API web service
 |----------|--------|-------|
 | `NODE_ENV` | Blueprint | `production` |
 | `DATABASE_URL` | Blueprint | Auto-wired to `geotrackhr-db` (private network) |
+| `DB_SSL_REJECT_UNAUTHORIZED` | Blueprint | `false` — trust Render's self-signed DB cert (required) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Blueprint | `generateValue: true` |
 | `CORS_ORIGIN` | You, at creation | Your Netlify URL (prompted) |
 | `PORT` | Render | Injected automatically; `server.ts` already binds `0.0.0.0` |
@@ -166,6 +167,11 @@ harmless; the app name shown is "GeoTrackHR".
 
 ## Troubleshooting
 
+- **Deploy fails with `DEPTH_ZERO_SELF_SIGNED_CERT`** — Render's Postgres
+  uses a self-signed cert on its internal connection string; the blueprint
+  sets `DB_SSL_REJECT_UNAUTHORIZED=false` to trust it. If you ever replace
+  `DATABASE_URL` with another provider, remove that env var (or set it to
+  `true`) so the CA is verified again.
 - **Login fails / 401 loop** — confirm `JWT_SECRET`/`JWT_REFRESH_SECRET` are
   set on Render (the server refuses to start in production without them — the
   blueprint generates them, but check they exist in the Environment tab).

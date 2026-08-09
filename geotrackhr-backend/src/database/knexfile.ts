@@ -11,12 +11,26 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
  * When DATABASE_URL is set (Neon, Render Postgres, etc.) it wins and is used
  * directly as a connection string — this is the value you paste from Neon's
  * dashboard. Otherwise the individual DB_* variables are used (local dev).
- * SSL is enabled for DATABASE_URL connections since managed Postgres
- * providers require it; set DB_SSL_REJECT_UNAUTHORIZED=false if your
- * provider uses a self-signed cert.
+ *
+ * SSL: managed Postgres providers require TLS. Render's managed Postgres
+ * presents a SELF-SIGNED cert on its internal connection, which Node refuses
+ * by default (DEPTH_ZERO_SELF_SIGNED_CERT). Render deployments must set
+ * DB_SSL_REJECT_UNAUTHORIZED=false to trust it. Providers with a proper CA
+ * (e.g. Neon) keep the default (verify) and the URL's own sslmode applies.
  */
 function connection(): Knex.PgConnectionConfig {
   if (process.env.DATABASE_URL) {
+    // Opt-out of cert verification (Render's self-signed internal cert).
+    // Strip any sslmode param from the URL so pg's own URL parsing can't
+    // re-enable verification, then force ssl explicitly. (If sslmode is the
+    // last query param a dangling '?' or '&' can remain — pg tolerates that.)
+    if (process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false') {
+      const url = process.env.DATABASE_URL.replace(/sslmode=[^&#]*&?/g, '');
+      return {
+        connectionString: url,
+        ssl: { rejectUnauthorized: false },
+      };
+    }
     // Managed providers (Neon, Render) usually already carry ?sslmode=require
     // in the URL — honor that. Only add an explicit ssl config when the URL
     // doesn't declare sslmode but the provider still requires SSL.
@@ -26,7 +40,7 @@ function connection(): Knex.PgConnectionConfig {
     }
     return {
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' },
+      ssl: { rejectUnauthorized: true },
     };
   }
   return {
