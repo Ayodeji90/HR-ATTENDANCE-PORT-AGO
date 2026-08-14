@@ -394,11 +394,12 @@ export async function rejectAttendance(req: Request, res: Response, next: NextFu
   }
 }
 
-/** Get attendance history for a specific employee */
+/** Get attendance history for a specific employee (optional ?month=YYYY-MM filter) */
 export async function employeeHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { employeeId } = req.params;
-    const result = await attendanceModel.list({ employeeId });
+    const { month } = req.query as any;
+    const result = await attendanceModel.list({ employeeId, month, limit: 500 });
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

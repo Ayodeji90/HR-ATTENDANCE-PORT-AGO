@@ -112,16 +112,20 @@ export async function supervisorApprove(req: Request, res: Response, next: NextF
   }
 }
 
-/** HR final stage: approved_by_supervisor -> approved_by_hr | rejected */
+/**
+ * HR final stage: approved_by_supervisor -> approved_by_hr | rejected.
+ * Also accepts requests still in 'pending' (single-stage flow, when there
+ * is no supervisor in the org) — HR acts directly on a fresh request.
+ */
 export async function hrApprove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
     const { comment } = decisionSchema.parse(req.body);
     const existing = await leaveModel.findById(id);
     if (!existing) throw new AppError('Leave request not found', 404, 'LEAVE_NOT_FOUND');
-    if (existing.status !== 'approved_by_supervisor') {
+    if (existing.status !== 'approved_by_supervisor' && existing.status !== 'pending') {
       throw new AppError(
-        `Leave request must be approved by a supervisor before HR can act (status: ${existing.status})`,
+        `Leave request is not awaiting HR action (status: ${existing.status})`,
         409,
         'INVALID_LEAVE_STATE',
       );
@@ -155,11 +159,12 @@ export const uploadDocument = [
   },
 ];
 
-/** Get leave history for an employee */
+/** Get leave history for an employee (optional ?month=YYYY-MM filter) */
 export async function employeeLeaveHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { employeeId } = req.params;
-    const result = await leaveModel.list({ employeeId });
+    const { month } = req.query as any;
+    const result = await leaveModel.list({ employeeId, month, limit: 500 });
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

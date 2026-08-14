@@ -1,22 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, CalendarClock, BarChart3, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { fetchMe } from '@/services/employee';
 
 const Dashboard: React.FC = () => {
   const user = useAuthStore((state) => state.user);
-  const [meId, setMeId] = useState<string | null>(null);
   const isEmployee = user?.role === 'employee';
-
-  useEffect(() => {
-    if (!isEmployee) return;
-    fetchMe()
-      .then((me) => setMeId(me?.id ?? null))
-      .catch(() => setMeId(null));
-  }, [isEmployee]);
 
   return (
     <div>
@@ -61,7 +52,7 @@ const Dashboard: React.FC = () => {
                 ? 'Request time off and track your approvals.'
                 : 'Review and act on pending supervisor/HR leave approvals.'}
             </p>
-            <Link to={isEmployee ? (meId ? `/leaves/employee/${meId}` : '/leaves') : '/leaves'} className="mt-4 block">
+            <Link to={isEmployee ? '/leaves/mine' : '/leaves'} className="mt-4 block">
               <Button variant="secondary" className="w-full">
                 {isEmployee ? 'My leave' : 'Open leave'}
                 <ArrowRight size={16} />
@@ -82,10 +73,7 @@ const Dashboard: React.FC = () => {
                 ? 'View your attendance history and leave balance.'
                 : 'Daily, site, and monthly payroll attendance summaries.'}
             </p>
-            <Link
-              to={isEmployee ? (meId ? `/attendance/employee/${meId}` : '/attendance/employee') : '/reports'}
-              className="mt-4 block"
-            >
+            <Link to={isEmployee ? '/reports/mine' : '/reports'} className="mt-4 block">
               <Button variant="secondary" className="w-full">
                 {isEmployee ? 'My reports' : 'Open reports'}
                 <ArrowRight size={16} />

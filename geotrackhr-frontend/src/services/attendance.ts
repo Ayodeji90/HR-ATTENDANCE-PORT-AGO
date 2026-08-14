@@ -77,8 +77,10 @@ export const rejectAttendance = async (id: string, reason: string) => {
   return response.data;
 };
 
-export const fetchEmployeeAttendanceHistory = async (employeeId: string) => {
-  const response = await api.get(`/attendance/employee/${employeeId}/history`, { params: { limit: 100 } });
+export const fetchEmployeeAttendanceHistory = async (employeeId: string, month?: string) => {
+  const response = await api.get(`/attendance/employee/${employeeId}/history`, {
+    params: { limit: 100, ...(month ? { month } : {}) },
+  });
   const body = response.data;
   return (body.data?.data ?? body.data ?? []) as AttendanceRecord[];
 };

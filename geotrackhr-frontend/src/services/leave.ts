@@ -47,8 +47,22 @@ export const hrReject = async (id: string, comment: string) => {
   return response.data;
 };
 
-export const fetchEmployeeLeaves = async (employeeId: string) => {
-  const response = await api.get(`/leave/employee/${employeeId}/history`);
+export const fetchEmployeeLeaves = async (employeeId: string, month?: string) => {
+  const response = await api.get(`/leave/employee/${employeeId}/history`, {
+    params: month ? { month } : undefined,
+  });
+  return response.data;
+};
+
+/** Submit a new leave request (employee self-service). */
+export const submitLeave = async (payload: {
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  half_day?: boolean;
+  reason?: string;
+}) => {
+  const response = await api.post('/leave', payload);
   return response.data;
 };
 

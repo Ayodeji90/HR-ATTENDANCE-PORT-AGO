@@ -26,6 +26,14 @@ const LeaveApprovals: React.FC = () => {
   const stages: Stage[] = role === 'hr' ? ['hr'] : role === 'supervisor' ? ['supervisor'] : ['supervisor', 'hr'];
   const [stage, setStage] = useState<Stage>(stages[0]);
 
+  // Single-stage flow: HR acts directly on fresh requests (pending). The
+  // supervisor stage remains available for orgs that use it, but HR no longer
+  // has to wait for a supervisor before deciding.
+  const statusForStage: Record<Stage, LeaveStatus> = {
+    supervisor: 'pending',
+    hr: role === 'hr' ? 'pending' : 'approved_by_supervisor',
+  };
+
   const [records, setRecords] = useState<LeaveRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +41,6 @@ const LeaveApprovals: React.FC = () => {
   const [rejectTarget, setRejectTarget] = useState<LeaveRecord | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const { employeeNames } = useLookupMaps();
-
-  const statusForStage: Record<Stage, LeaveStatus> = { supervisor: 'pending', hr: 'approved_by_supervisor' };
 
   const load = () => {
     setLoading(true);
@@ -127,7 +133,7 @@ const LeaveApprovals: React.FC = () => {
                 stage === s ? 'border-b-2 border-primary-600 text-primary-700' : 'text-ink-500 hover:text-ink-800'
               }`}
             >
-              {s === 'supervisor' ? 'Awaiting Supervisor' : 'Awaiting HR'}
+              {s === 'supervisor' ? 'Awaiting Supervisor' : 'Pending HR Review'}
             </button>
           ))}
         </div>
@@ -139,7 +145,7 @@ const LeaveApprovals: React.FC = () => {
         data={records}
         loading={loading}
         emptyTitle="No leave requests here"
-        emptyDescription={stage === 'supervisor' ? 'Nothing awaiting supervisor review.' : 'Nothing awaiting HR sign-off.'}
+        emptyDescription={stage === 'supervisor' ? 'Nothing awaiting supervisor review.' : 'Nothing awaiting HR review.'}
       />
 
       <Modal

@@ -71,6 +71,7 @@ export const attendanceModel = {
     siteId?: string;
     date?: string;
     status?: string;
+    month?: string; // YYYY-MM — event_date starts with this prefix
   }): Promise<{ data: AttendanceRecord[]; total: number }> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const limit = params.limit && params.limit > 0 ? params.limit : 20;
@@ -80,6 +81,7 @@ export const attendanceModel = {
     if (params.siteId) query.where('site_id', params.siteId);
     if (params.date) query.where('event_date', params.date);
     if (params.status) query.where('status', params.status);
+    if (params.month) query.where('event_date', 'like', `${params.month}%`);
     const totalResult = await query.clone().count<{ count: string }>('id as count').first();
     const total = totalResult ? Number(totalResult.count) : 0;
     const data = await query

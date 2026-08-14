@@ -20,6 +20,7 @@ import SiteCreate from './pages/SiteCreate';
 import SiteAssignments from './pages/SiteAssignments';
 import LeaveApprovals from './pages/LeaveApprovals';
 import EmployeeLeaves from './pages/EmployeeLeaves';
+import MyReports from './pages/MyReports';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
@@ -68,6 +69,9 @@ const App: React.FC = () => {
           {/* Leave management */}
           <Route path="/leaves" element={<LeaveApprovals />} />
           <Route path="/leaves/employee/:employeeId" element={<EmployeeLeaves />} />
+          {/* Employee self-service */}
+          <Route path="/leaves/mine" element={<EmployeeLeaves />} />
+          <Route path="/reports/mine" element={<MyReports />} />
 
           {/* Reports */}
           <Route path="/reports" element={<Reports />} />

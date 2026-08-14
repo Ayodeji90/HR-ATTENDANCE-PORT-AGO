@@ -52,13 +52,17 @@ export const leaveModel = {
     return db<LeaveRecord>('leave_requests').where({ id }).first();
   },
 
-  async list(params: { employeeId?: string; status?: string; page?: number; limit?: number }) {
+  async list(params: { employeeId?: string; status?: string; month?: string; page?: number; limit?: number }) {
     const page = params.page && params.page > 0 ? params.page : 1;
     const limit = params.limit && params.limit > 0 ? params.limit : 20;
     const offset = (page - 1) * limit;
     const query = db<LeaveRecord>('leave_requests');
     if (params.employeeId) query.where('employee_id', params.employeeId);
     if (params.status) query.where('status', params.status);
+    if (params.month) {
+      // YYYY-MM — any leave overlapping that month (start_date within it).
+      query.where('start_date', 'like', `${params.month}%`);
+    }
     const totalResult = await query.clone().count<{ count: string }>('id as count').first();
     const total = totalResult ? Number(totalResult.count) : 0;
     const data = await query.orderBy('created_at', 'desc').limit(limit).offset(offset);

@@ -37,7 +37,11 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'My Work',
-    items: [{ to: '/attendance/live', label: 'Live Attendance', icon: Camera, roles: ['employee'] }],
+    items: [
+      { to: '/attendance/live', label: 'Live Attendance', icon: Camera, roles: ['employee'] },
+      { to: '/leaves/mine', label: 'Leave Requests', icon: CalendarClock, roles: ['employee'] },
+      { to: '/reports/mine', label: 'My Reports', icon: BarChart3, roles: ['employee'] },
+    ],
   },
   {
     label: 'Attendance',
