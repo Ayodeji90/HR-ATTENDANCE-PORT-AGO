@@ -27,16 +27,6 @@ export const fetchPendingLeaves = async (status?: LeaveStatus) => {
   return response.data;
 };
 
-export const supervisorApprove = async (id: string, comment?: string) => {
-  const response = await api.post(`/leave/${id}/approve`, { comment });
-  return response.data;
-};
-
-export const supervisorReject = async (id: string, comment: string) => {
-  const response = await api.post(`/leave/${id}/reject`, { comment });
-  return response.data;
-};
-
 export const hrApprove = async (id: string, comment?: string) => {
   const response = await api.post(`/leave/${id}/hr-approve`, { comment });
   return response.data;

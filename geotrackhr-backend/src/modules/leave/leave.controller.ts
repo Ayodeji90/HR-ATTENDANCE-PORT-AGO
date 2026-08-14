@@ -92,30 +92,10 @@ export async function submitLeave(req: Request, res: Response, next: NextFunctio
   }
 }
 
-/** Supervisor stage: pending -> approved_by_supervisor | rejected */
-export async function supervisorApprove(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { id } = req.params;
-    const { comment } = decisionSchema.parse(req.body);
-    const existing = await leaveModel.findById(id);
-    if (!existing) throw new AppError('Leave request not found', 404, 'LEAVE_NOT_FOUND');
-    if (existing.status !== 'pending') {
-      throw new AppError(`Leave request is not awaiting supervisor decision (status: ${existing.status})`, 409, 'INVALID_LEAVE_STATE');
-    }
-    const decision = req.path.includes('reject') ? 'rejected' : 'approved_by_supervisor';
-    const record = await leaveModel.supervisorDecide(id, decision, req.user!.userId, comment);
-    logger.info(`Leave ${decision} by supervisor`, { leaveId: id, supervisorId: req.user!.userId });
-    if (decision === 'rejected') await notifyEmployee(record, 'rejected');
-    res.json({ success: true, data: record });
-  } catch (err) {
-    next(err);
-  }
-}
-
 /**
- * HR final stage: approved_by_supervisor -> approved_by_hr | rejected.
- * Also accepts requests still in 'pending' (single-stage flow, when there
- * is no supervisor in the org) — HR acts directly on a fresh request.
+ * HR decision on a leave request (single-stage flow): pending ->
+ * approved_by_hr | rejected. There is no supervisor stage — HR acts
+ * directly on the fresh request.
  */
 export async function hrApprove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -123,7 +103,7 @@ export async function hrApprove(req: Request, res: Response, next: NextFunction)
     const { comment } = decisionSchema.parse(req.body);
     const existing = await leaveModel.findById(id);
     if (!existing) throw new AppError('Leave request not found', 404, 'LEAVE_NOT_FOUND');
-    if (existing.status !== 'approved_by_supervisor' && existing.status !== 'pending') {
+    if (existing.status !== 'pending') {
       throw new AppError(
         `Leave request is not awaiting HR action (status: ${existing.status})`,
         409,

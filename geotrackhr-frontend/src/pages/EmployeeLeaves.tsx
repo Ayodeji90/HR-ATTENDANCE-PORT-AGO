@@ -22,7 +22,7 @@ const LEAVE_TYPES: LeaveType[] = ['annual', 'sick', 'casual', 'emergency', 'mate
 /** Readable label for each leave status (used for decision feedback) */
 const LEAVE_STATUS_LABELS: Record<LeaveRecord['status'], string> = {
   pending: 'Pending HR review',
-  approved_by_supervisor: 'Approved by supervisor — awaiting HR',
+  approved_by_supervisor: 'Approved — awaiting final HR sign-off',
   approved_by_hr: 'Approved',
   rejected: 'Rejected',
   cancelled: 'Cancelled',

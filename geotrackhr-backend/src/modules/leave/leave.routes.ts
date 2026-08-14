@@ -4,7 +4,6 @@ import { requireRole } from '@middleware/rbac';
 import { requireSelfOrRole } from '@middleware/ownership';
 import {
   submitLeave,
-  supervisorApprove,
   hrApprove,
   uploadDocument,
   employeeLeaveHistory,
@@ -21,12 +20,9 @@ router.post('/', submitLeave);
 router.get('/employee/:employeeId/history', requireSelfOrRole('admin', 'hr', 'supervisor'), employeeLeaveHistory);
 router.post('/:id/document', uploadDocument);
 
-// Supervisor stage (first approval)
-router.get('/pending', requireRole('admin', 'hr', 'supervisor'), pendingLeaves);
-router.post('/:id/approve', requireRole('admin', 'supervisor'), supervisorApprove);
-router.post('/:id/reject', requireRole('admin', 'supervisor'), supervisorApprove);
-
-// HR stage (final approval, only after supervisor has approved)
+// Pending leave queue + HR decision (single-stage: HR acts directly on the
+// fresh request — no supervisor stage).
+router.get('/pending', requireRole('admin', 'hr'), pendingLeaves);
 router.post('/:id/hr-approve', requireRole('admin', 'hr'), hrApprove);
 router.post('/:id/hr-reject', requireRole('admin', 'hr'), hrApprove);
 

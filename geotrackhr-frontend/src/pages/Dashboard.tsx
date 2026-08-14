@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
             <p className="mt-1 flex-1 text-sm text-ink-500">
               {isEmployee
                 ? 'Request time off and track your approvals.'
-                : 'Review and act on pending supervisor/HR leave approvals.'}
+                : 'Review and act on pending leave requests from employees.'}
             </p>
             <Link to={isEmployee ? '/leaves/mine' : '/leaves'} className="mt-4 block">
               <Button variant="secondary" className="w-full">

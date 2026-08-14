@@ -69,28 +69,7 @@ export const leaveModel = {
     return { data, total };
   },
 
-  /** Supervisor stage decision: pending -> approved_by_supervisor | rejected */
-  async supervisorDecide(
-    id: string,
-    decision: 'approved_by_supervisor' | 'rejected',
-    supervisorId: string,
-    comment?: string,
-  ): Promise<LeaveRecord> {
-    const [record] = await db<LeaveRecord>('leave_requests')
-      .where({ id })
-      .update({
-        status: decision,
-        supervisor_id: supervisorId,
-        supervisor_approved_at: db.fn.now(),
-        supervisor_comment: comment ?? null,
-        rejection_reason: decision === 'rejected' ? comment ?? null : null,
-        updated_at: db.fn.now(),
-      })
-      .returning('*');
-    return record;
-  },
-
-  /** HR final stage decision: approved_by_supervisor -> approved_by_hr | rejected */
+  /** HR decision (single-stage flow): pending -> approved_by_hr | rejected */
   async hrDecide(
     id: string,
     decision: 'approved_by_hr' | 'rejected',

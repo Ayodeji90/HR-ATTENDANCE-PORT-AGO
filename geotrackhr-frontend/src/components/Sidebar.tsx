@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Leave',
-    items: [{ to: '/leaves', label: 'Leave Approvals', icon: History, roles: ['admin', 'hr', 'supervisor'] }],
+    items: [{ to: '/leaves', label: 'Leave Approvals', icon: History, roles: ['admin', 'hr'] }],
   },
   {
     label: 'Insights',
