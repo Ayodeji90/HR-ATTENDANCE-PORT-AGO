@@ -91,6 +91,7 @@ the Postgres database (`geotrackhr-db`) and the API web service
 | `DB_SSL_REJECT_UNAUTHORIZED` | Blueprint | `false` — trust Render's self-signed DB cert (required) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Blueprint | `generateValue: true` |
 | `CORS_ORIGIN` | Optional | Comma-separated allowlist; defaults to `localhost:5173` + the Netlify URL |
+| `ATTENDANCE_DEMO_MODE` | Optional | Set to `true` to bypass geofence + time-window checks (test punches from anywhere, anytime) |
 | `PORT` | Render | Injected automatically; `server.ts` already binds `0.0.0.0` |
 
 If you need to change `CORS_ORIGIN` later, edit it in the Render dashboard
@@ -164,8 +165,8 @@ install on their Android phone:
    reviewer downloads, allows "install unknown apps", and taps Install.
 
 5. Reviewer logs in with one of the employee demo accounts and can check in /
-   out using the seeded demo sites (their phone's GPS must be inside a site's
-   geofence radius — NYC demo site is 150 m).
+   out using the seeded company sites (their phone's GPS must be inside a
+   site's geofence radius — both company sites use a 100 m radius).
 
 > **Debug vs release:** `npm run build:apk` (debug) needs a Metro dev server
 > running on your machine, so don't share that one. Always share the release
@@ -223,6 +224,24 @@ harmless; the app name shown is "GeoTrackHR".
 - **CORS errors in the browser console** — confirm `CORS_ORIGIN` on Render
   matches the exact Netlify URL (scheme + host, no trailing slash), then
   redeploy.
+- **Punch rejected with `GEOFENCE_VIOLATION` or `OUTSIDE_*_WINDOW` while
+  testing** — the attendance policy is enforced server-side: the GPS must be
+  within the site's geofence radius **and** the punch must be inside its time
+  window (check-in 00:00–10:00, afternoon 14:00–15:00, check-out 17:00–22:00).
+  The two company geofences are **Kamio Homes, 2A Louis Solomon Cl, Victoria
+  Island, Lagos** (6.427667, 3.408044) and **9 Molade Okoya Thomas St, Ogba,
+  Ikeja, Lagos** (6.619298, 3.3462232), each with a **100 m radius**. If the
+  database was seeded before these coordinates existed, update the existing
+  sites in place (keeps site IDs + assignments, truncates nothing) with
+  `npm run db:update-sites` (or, on Render: open the service **Shell** and run
+  `npx tsx src/scripts/update-company-sites.ts`).
+  To test from anywhere at any time, set `ATTENDANCE_DEMO_MODE=true` in the
+  Render dashboard (Environment tab → save → triggers a redeploy). The
+  recorded row keeps the *measured* `within_geofence` value; only the
+  blocking is skipped. Note: in demo mode every punch is recorded as
+  `approved` — the pending/late-check-in HR-approval flow only appears when
+  demo mode is off. **Turn demo mode off before any real rollout** — while
+  enabled, attendance integrity (location + time) is not enforced.
 - **Login fails with `401 INVALID_CREDENTIALS` even with the seeded
   credentials** — the seed is idempotent and runs on **every** deploy inside
   `startCommand` (after migrations), so the next deploy after this change

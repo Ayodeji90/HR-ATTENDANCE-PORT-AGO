@@ -124,12 +124,20 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
   }
 }
 
-/** Verify geofence for a site; throws if outside the radius */
-async function verifyGeofence(siteId: string, lat: number, lon: number): Promise<void> {
+/**
+ * Verify geofence for a site. Returns whether the point is inside the radius.
+ * Throws GEOFENCE_VIOLATION when outside — unless demo mode is enabled, in
+ * which case the distance is still measured/reported but never blocks a punch
+ * (so the flow can be tested from anywhere).
+ */
+async function verifyGeofence(siteId: string, lat: number, lon: number): Promise<boolean> {
   const site = await siteModel.findById(siteId);
   if (!site) throw new AppError('Site not found for geofence check', 404, 'SITE_NOT_FOUND');
   const within = isWithinGeofence(lat, lon, site.latitude, site.longitude, site.radius_meters);
-  if (!within) throw new AppError('Location outside allowed geofence radius', 400, 'GEOFENCE_VIOLATION');
+  if (!within && !config.attendance.demoMode) {
+    throw new AppError('Location outside allowed geofence radius', 400, 'GEOFENCE_VIOLATION');
+  }
+  return within;
 }
 
 /**
@@ -157,7 +165,7 @@ async function recordPunch(params: {
   const employee = await employeeModel.findById(employeeId);
   if (!employee) throw new AppError('Employee not found', 404, 'EMPLOYEE_NOT_FOUND');
 
-  await verifyGeofence(siteId, latitude, longitude);
+  const withinGeofence = await verifyGeofence(siteId, latitude, longitude);
 
   // Live selfie: persist the image and (placeholder) facial verification.
   // The real verification pipeline is not wired up yet — a stored template
@@ -181,7 +189,13 @@ async function recordPunch(params: {
   const localTime = getLocalTime(at);
   let status: 'pending' | 'approved' = 'approved';
 
-  if (eventType === 'check_in') {
+  if (config.attendance.demoMode) {
+    // Demo mode: attendance policy (time windows + late-flagging) is skipped —
+    // every punch records as an approved on-time punch so the flow can be
+    // exercised end-to-end at any hour.
+    logger.info('Demo mode active — attendance policy checks skipped', { employeeId, eventType });
+    status = 'approved';
+  } else if (eventType === 'check_in') {
     if (isCheckInOnTime(localTime)) {
       status = 'approved';
     } else if (isCheckInLate(localTime)) {
@@ -211,7 +225,7 @@ async function recordPunch(params: {
       gps_latitude: latitude,
       gps_longitude: longitude,
       gps_accuracy: params.gpsAccuracy ?? null,
-      within_geofence: true, // verifyGeofence above throws before we get here otherwise
+      within_geofence: withinGeofence, // true in strict mode (would have thrown otherwise); measured in demo mode
       status,
       reason,
       facial_match_score: facialMatchScore,

@@ -87,3 +87,9 @@ services:
       # geotrackhr-backend/src/config/index.ts).
       - key: CORS_ORIGIN
         sync: false
+      # OPTIONAL demo mode — set to true to bypass the geofence + time-window
+      # attendance policy so punches can be tested from anywhere at any time.
+      # Set it in the Render dashboard (Environment tab → save). Left empty
+      # (or false), the strict attendance rules apply.
+      - key: ATTENDANCE_DEMO_MODE
+        sync: false

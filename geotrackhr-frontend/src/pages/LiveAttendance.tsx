@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal';
 import Alert from '@/components/ui/Alert';
 import Spinner from '@/components/ui/Spinner';
 import { MapPin, Camera, RefreshCw, Video, VideoOff, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import api from '@/services/api';
 import { fetchMe } from '@/services/employee';
 import { fetchSites } from '@/services/site';
 import {
@@ -45,6 +46,7 @@ const LiveAttendance: React.FC = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<AttendanceEventType | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   // ── GPS ──────────────────────────────────────────────────────────────
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -95,6 +97,14 @@ const LiveAttendance: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // The backend exposes attendance demo mode (ATTENDANCE_DEMO_MODE=true on
+    // Render) via /api/health — when on, every punch is accepted, so the page
+    // highlights all punch buttons and shows a note instead of only the
+    // time-window-valid action.
+    api
+      .get('/health')
+      .then((r) => setDemoMode(!!r.data?.data?.attendanceDemoMode))
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -124,6 +134,7 @@ const LiveAttendance: React.FC = () => {
             accuracy: pos.coords.accuracy ?? null,
           };
           setCoords(next);
+          setSubmitError(null);
           setLocating(false);
           resolve(next);
         },
@@ -183,6 +194,7 @@ const LiveAttendance: React.FC = () => {
     ctx.drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     setSelfie(dataUrl);
+    setSubmitError(null);
     stopCamera();
   }, [stopCamera]);
 
@@ -190,7 +202,10 @@ const LiveAttendance: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setSelfie(reader.result as string);
+    reader.onload = () => {
+      setSelfie(reader.result as string);
+      setSubmitError(null);
+    };
     reader.readAsDataURL(file);
     e.target.value = '';
   }, []);
@@ -242,13 +257,13 @@ const LiveAttendance: React.FC = () => {
         setSubmitError('Capture a live selfie before punching.');
         return;
       }
-      if (eventType === 'check_in' && isLateCheckIn()) {
+      if (eventType === 'check_in' && !demoMode && isLateCheckIn()) {
         setReasonModal({ open: true, reason: '' });
         return;
       }
       await performPunch(eventType, position, undefined);
     },
-    [selectedSiteId, coords, selfie, locationError, getLocation, performPunch],
+    [selectedSiteId, coords, selfie, locationError, getLocation, performPunch, demoMode],
   );
 
   const submitLateReason = useCallback(async () => {
@@ -318,7 +333,14 @@ const LiveAttendance: React.FC = () => {
           {/* Site selection */}
           <Card title="Your site">
             <p className="mb-3 text-sm text-ink-500">The geofence your GPS is verified against.</p>
-            <Select label="Working site" value={selectedSiteId} onChange={(e) => setSelectedSiteId(e.target.value)}>
+            <Select
+              label="Working site"
+              value={selectedSiteId}
+              onChange={(e) => {
+                setSelectedSiteId(e.target.value);
+                setSubmitError(null);
+              }}
+            >
               <option value="">Select a site…</option>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -334,10 +356,16 @@ const LiveAttendance: React.FC = () => {
               Current window: <span className="font-medium text-ink-700">{WINDOW_LABELS[window]}</span>. Your GPS must be
               inside the site's geofence.
             </p>
+            {demoMode && (
+              <p className="mb-3 rounded-md bg-ink-50/60 px-3 py-2 text-xs font-medium text-success-700">
+                Demo mode is on — geofence and time-window checks are bypassed, so any punch is accepted from anywhere,
+                anytime.
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {ACTIONS.map((type) => {
                 const done = !!recordFor(type);
-                const isActive = activeAction === type;
+                const isActive = demoMode || activeAction === type;
                 return (
                   <Button
                     key={type}

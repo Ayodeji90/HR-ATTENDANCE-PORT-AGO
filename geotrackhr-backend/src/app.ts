@@ -82,6 +82,9 @@ app.get('/api/health', (_req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: config.app.nodeEnv,
+      // Lets the web frontend show the demo-mode state (all punches accepted)
+      // without shipping a separate config endpoint.
+      attendanceDemoMode: config.attendance.demoMode,
     },
   });
 });

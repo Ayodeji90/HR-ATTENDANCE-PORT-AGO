@@ -53,36 +53,38 @@ export async function seed(knex: Knex): Promise<void> {
     is_active: true,
   });
 
-  // ── Demo Sites ─────────────────────────────────────────
-  // Site 1: Downtown Construction (New York area)
-  // Site 2: Highway Project (simulated coordinates)
+  // ── Company Sites (real locations — geofences the live attendance
+  //    GPS is verified against) ────────────────────────────────────
+  // Site 1: Kamio Homes — Victoria Island, Lagos
+  // Site 2: Molade Okoya Thomas St office — Ogba, Ikeja, Lagos
+  // Radii: 100 m (tight — employee must be at/near the office building).
   await knex('sites').insert([
     {
-      name: 'Downtown Tower Phase 1',
+      name: 'Kamio Homes (Victoria Island)',
       code: 'SITE-DT1',
-      description: 'Main downtown high-rise construction site',
-      address_line1: '120 Broadway',
-      city: 'New York',
-      state: 'NY',
-      country: 'US',
-      postal_code: '10006',
-      latitude: 40.7081000,
-      longitude: -74.0112000,
-      radius_meters: 150,
+      description: 'Company office — 2A Louis Solomon Cl, Victoria Island, Lagos',
+      address_line1: '2A Louis Solomon Cl',
+      city: 'Victoria Island',
+      state: 'Lagos',
+      country: 'NG',
+      postal_code: '71510',
+      latitude: 6.427667,
+      longitude: 3.408044,
+      radius_meters: 100,
       is_active: true,
     },
     {
-      name: 'Highway Extension Project',
+      name: 'Molade Okoya Thomas St (Ogba)',
       code: 'SITE-HW2',
-      description: 'Highway lane extension and bridge work',
-      address_line1: '45 Route 9W',
-      city: 'Albany',
-      state: 'NY',
-      country: 'US',
-      postal_code: '12204',
-      latitude: 42.6526000,
-      longitude: -73.7562000,
-      radius_meters: 300,
+      description: 'Company office — 9 Molade Okoya Thomas St, Ogba, Ikeja, Lagos',
+      address_line1: '9 Molade Okoya Thomas St',
+      city: 'Ogba',
+      state: 'Lagos',
+      country: 'NG',
+      postal_code: '101233',
+      latitude: 6.619298,
+      longitude: 3.3462232,
+      radius_meters: 100,
       is_active: true,
     },
   ]);

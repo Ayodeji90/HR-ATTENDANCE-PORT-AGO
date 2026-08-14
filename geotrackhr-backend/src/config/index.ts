@@ -50,6 +50,12 @@ export const config = {
     dir: process.env.UPLOAD_DIR || './uploads',
     maxFileSize: Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024, // 10MB
   },
+  attendance: {
+    // Demo mode: when true, the geofence + time-window attendance policy is
+    // skipped so the live-attendance flow can be tested from anywhere at any
+    // time. Strict rules apply unless ATTENDANCE_DEMO_MODE=true is set.
+    demoMode: process.env.ATTENDANCE_DEMO_MODE === 'true',
+  },
   cors: {
     // Comma-separated allowlist of allowed origins. The default covers local
     // dev (Vite on :5173) and the hosted Netlify frontend, so the app works
