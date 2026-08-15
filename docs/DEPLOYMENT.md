@@ -91,7 +91,9 @@ the Postgres database (`geotrackhr-db`) and the API web service
 | `DB_SSL_REJECT_UNAUTHORIZED` | Blueprint | `false` — trust Render's self-signed DB cert (required) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Blueprint | `generateValue: true` |
 | `CORS_ORIGIN` | Optional | Comma-separated allowlist; defaults to `localhost:5173` + the Netlify URL |
-| `ATTENDANCE_DEMO_MODE` | Optional | Set to `true` to bypass geofence + time-window checks (test punches from anywhere, anytime) |
+| `ATTENDANCE_DEMO_MODE` | Optional | Set to `true` to bypass geofence + time-window checks **and** facial verification (test punches from anywhere, anytime, without enrollment) |
+| `FACIAL_MATCH_THRESHOLD` | Optional | Maximum euclidean distance between selfie + enrolled face (0.6 default; lower = stricter) |
+| `FACIAL_MODEL_DIR` | Optional | Model files dir, defaults to `./models/facial` (committed to the repo) |
 | `PORT` | Render | Injected automatically; `server.ts` already binds `0.0.0.0` |
 
 If you need to change `CORS_ORIGIN` later, edit it in the Render dashboard
@@ -166,7 +168,12 @@ install on their Android phone:
 
 5. Reviewer logs in with one of the employee demo accounts and can check in /
    out using the seeded company sites (their phone's GPS must be inside a
-   site's geofence radius — both company sites use a 100 m radius).
+   site's geofence radius — all three company sites use a 100 m radius).
+   **The mobile punch now requires a live selfie** (front camera) which the
+   backend verifies against the employee's enrolled face before recording —
+   so the demo employees must be **face-enrolled first** (admin → employee
+   detail → Facial enrollment → upload 1–3 photos), or `ATTENDANCE_DEMO_MODE`
+   must be on.
 
 > **Debug vs release:** `npm run build:apk` (debug) needs a Metro dev server
 > running on your machine, so don't share that one. Always share the release
@@ -241,7 +248,24 @@ harmless; the app name shown is "GeoTrackHR".
   blocking is skipped. Note: in demo mode every punch is recorded as
   `approved` — the pending/late-check-in HR-approval flow only appears when
   demo mode is off. **Turn demo mode off before any real rollout** — while
-  enabled, attendance integrity (location + time) is not enforced.
+  enabled, attendance integrity (location + time + face) is not enforced.
+- **Punch rejected with `FACIAL_NOT_ENROLLED` / `FACIAL_SELFIE_REQUIRED` /
+  `FACIAL_MISMATCH`** — facial verification is now enforced server-side on
+  every punch (unless `ATTENDANCE_DEMO_MODE=true`).
+  - `FACIAL_NOT_ENROLLED` — the employee has no face template. HR/admin must
+    open the employee detail page → **Facial enrollment** → upload 1–3 clear
+    front-facing photos (backend stores the averaged FaceNet embedding).
+  - `FACIAL_SELFIE_REQUIRED` — the punch had no selfie; capture a live photo.
+  - `FACIAL_MISMATCH` — the selfie's face embedding is farther than
+    `FACIAL_MATCH_THRESHOLD` (default 0.6 euclidean distance) from the
+    enrolled template, i.e. a different person is punching. Only the enrolled
+    employee can punch.
+  The engine is `@vladmandic/face-api` (SSD-MobileNet + FaceNet) on
+  `@tensorflow/tfjs-node`; model files are committed under
+  `geotrackhr-backend/models/facial/`. First verification after a cold start
+  loads the models (~1–2 s); subsequent checks are fast. There is **no
+  liveness detection yet** — a printed photo of the employee could pass; that
+  is the planned next step.
 - **Login fails with `401 INVALID_CREDENTIALS` even with the seeded
   credentials** — the seed is idempotent and runs on **every** deploy inside
   `startCommand` (after migrations), so the next deploy after this change

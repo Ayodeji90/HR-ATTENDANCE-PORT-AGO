@@ -9,6 +9,7 @@ import { siteModel } from '@modules/site/site.model';
 import { employeeModel } from '@modules/employee/employee.model';
 import { isWithinGeofence } from '@utils/geofence';
 import { facialModel } from '@modules/facial/facial.model';
+import { extractEmbeddingFromFile, euclideanDistance } from '@utils/facial';
 import { config } from '@config/index';
 import { resolveEmployeeId } from '@middleware/ownership';
 import { getLocalTime, getLocalDate, isCheckInOnTime, isCheckInLate, isCheckInVeryLate, isAfternoonWindow, isCheckoutWindow } from '@utils/time';
@@ -87,6 +88,8 @@ const syncItemSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   reason: z.string().optional(),
+  // Selfie captured at punch time and replayed through verification at sync.
+  selfie: z.string().optional(),
   client_timestamp: z.string().refine((d) => !isNaN(Date.parse(d)), { message: 'Invalid client_timestamp' }),
 });
 
@@ -167,23 +170,56 @@ async function recordPunch(params: {
 
   const withinGeofence = await verifyGeofence(siteId, latitude, longitude);
 
-  // Live selfie: persist the image and (placeholder) facial verification.
-  // The real verification pipeline is not wired up yet — a stored template
-  // means we record facial_verified=true; otherwise the image is still kept
-  // as evidence and the record is flagged unverified.
+  // Live selfie: persist the image and run real facial verification against
+  // the employee's enrolled template. Strict rules:
+  //   - No template on file      → reject (FACIAL_NOT_ENROLLED)
+  //   - No selfie with the punch → reject (FACIAL_SELFIE_REQUIRED)
+  //   - Embedding below threshold → reject (FACIAL_MISMATCH)
+  // Demo mode skips all of this so the flow can be tested without enrollment.
   let selfiePath: string | null = null;
   let facialVerified = false;
   let facialMatchScore: number | null = null;
   if (params.selfie) {
     selfiePath = saveSelfie(params.selfie);
+  }
+
+  if (!config.attendance.demoMode) {
     const facial = await facialModel.findByEmployeeId(employeeId);
-    if (facial) {
-      facialVerified = true;
-      facialMatchScore = 1; // placeholder — template exists
-      logger.info('Facial verification passed (placeholder)', { employeeId });
-    } else {
-      logger.info('No facial template on file — selfie stored, verification skipped', { employeeId });
+    if (!facial) {
+      throw new AppError(
+        'No face enrolled for this employee — ask HR to register your face before punching',
+        400,
+        'FACIAL_NOT_ENROLLED',
+      );
     }
+    if (!selfiePath) {
+      throw new AppError('A live selfie is required to verify your identity', 400, 'FACIAL_SELFIE_REQUIRED');
+    }
+    if (!Array.isArray(facial.template_data) || facial.template_data.length === 0) {
+      throw new AppError('Stored facial template is corrupt — re-enroll with HR', 500, 'FACIAL_TEMPLATE_CORRUPT');
+    }
+    const result = await extractEmbeddingFromFile(selfiePath);
+    if (!result) {
+      throw new AppError('No face detected in the selfie — retake facing the camera', 422, 'NO_FACE_DETECTED');
+    }
+    facialMatchScore = euclideanDistance(result.descriptor, facial.template_data);
+    facialVerified = facialMatchScore <= config.facial.matchThreshold;
+    logger.info('Facial verification at punch', {
+      employeeId,
+      eventType,
+      distance: Number(facialMatchScore.toFixed(4)),
+      verified: facialVerified,
+      threshold: config.facial.matchThreshold,
+    });
+    if (!facialVerified) {
+      throw new AppError(
+        'Face does not match the enrolled employee — only the registered person can punch',
+        403,
+        'FACIAL_MISMATCH',
+      );
+    }
+  } else if (selfiePath) {
+    logger.info('Demo mode active — facial verification skipped', { employeeId, eventType });
   }
 
   const localTime = getLocalTime(at);
@@ -351,6 +387,7 @@ export async function syncAttendance(req: Request, res: Response, next: NextFunc
             latitude: item.latitude,
             longitude: item.longitude,
             reason: item.reason,
+            selfie: item.selfie,
             at: new Date(item.client_timestamp),
           });
           return { index, success: true, data: record };

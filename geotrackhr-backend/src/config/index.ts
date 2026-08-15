@@ -34,7 +34,13 @@ export const config = {
     parallelism: Number(process.env.ARGON2_PARALLELISM) || 4,
   },
   facial: {
-    matchThreshold: Number(process.env.FACIAL_MATCH_THRESHOLD) || 0.85,
+    // Maximum euclidean distance between the live selfie's embedding and the
+    // employee's stored template for the punch to be accepted. Same metric
+    // as face-api's FaceMatcher: same person < 0.6, strangers > 0.6
+    // (calibrated against real portraits during development).
+    matchThreshold: Number(process.env.FACIAL_MATCH_THRESHOLD) || 0.6,
+    // Directory holding the face-api model files (committed to the repo).
+    modelDir: process.env.FACIAL_MODEL_DIR || './models/facial',
   },
   leave: {
     // Annual entitlement in days per leave_type. 'unpaid' has no cap.

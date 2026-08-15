@@ -6,6 +6,8 @@ interface PunchPayload {
   latitude: number;
   longitude: number;
   reason?: string;
+  /** Base64 data-URL selfie — the backend verifies it matches the enrolled face. */
+  selfie?: string;
 }
 
 /** POST /attendance/checkin */
@@ -42,12 +44,13 @@ export interface SyncItemResult {
 /** POST /attendance/sync — replay a batch of offline punches, one result per item */
 export async function syncOfflinePunches(items: OfflinePunch[]): Promise<SyncItemResult[]> {
   const response = await api.post('/attendance/sync', {
-    items: items.map(({ event_type, site_id, latitude, longitude, reason, client_timestamp }) => ({
+    items: items.map(({ event_type, site_id, latitude, longitude, reason, selfie, client_timestamp }) => ({
       event_type,
       site_id,
       latitude,
       longitude,
       reason,
+      selfie,
       client_timestamp,
     })),
   });

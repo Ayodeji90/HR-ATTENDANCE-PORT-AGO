@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
 import { AppError } from '@middleware/errorHandler';
 import { logger } from '@utils/logger';
 import { facialModel } from './facial.model';
 import { config } from '@config/index';
+import { extractEmbeddingFromFile, averageEmbeddings, euclideanDistance } from '@utils/facial';
 import fs from 'fs';
 
 // ---------------------------------------------------------------------------
@@ -25,29 +25,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: config.upload.maxFileSize } });
 
-const PLACEHOLDER_MODEL_VERSION = 'placeholder-v1';
-const EMBEDDING_DIMENSIONS = 16;
+const MODEL_VERSION = 'facenet-v1';
 
 /**
- * Placeholder facial embedding generator. A real implementation would call
- * an AI facial-recognition model here; this deterministically derives a
- * fixed-length float vector from the uploaded file names so the rest of
- * the pipeline (storage, verification) can be built and tested end-to-end.
+ * Register facial images for an employee (multiple uploads). Each image is
+ * run through the face model to produce a 128-dim embedding; the enrollments
+ * are averaged into a single template so a variety of angles/lighting are
+ * represented. At least one image with a detectable face is required.
  */
-function generatePlaceholderTemplate(imagePaths: string[]): number[] {
-  const concat = [...imagePaths].sort().join('|');
-  const vector: number[] = [];
-  for (let i = 0; i < EMBEDDING_DIMENSIONS; i++) {
-    let hash = 0;
-    for (let c = 0; c < concat.length; c++) {
-      hash = (hash * 31 + concat.charCodeAt(c) + i) | 0;
-    }
-    vector.push((hash % 1000) / 1000);
-  }
-  return vector;
-}
-
-/** Register facial images for an employee (multiple uploads) */
 export const registerFacial = [
   upload.array('images', 10), // up to 10 images per registration
   async (req: Request, res: Response, next: NextFunction) => {
@@ -58,22 +43,59 @@ export const registerFacial = [
       }
       const files = req.files as Express.Multer.File[];
       const imagePaths = files.map((f) => path.relative(process.cwd(), f.path));
-      const templateData = generatePlaceholderTemplate(imagePaths);
+
+      const embeddings: number[][] = [];
+      let totalScore = 0;
+      for (const imagePath of imagePaths) {
+        const result = await extractEmbeddingFromFile(imagePath);
+        if (result) {
+          embeddings.push(result.descriptor);
+          totalScore += result.detectionScore;
+        } else {
+          logger.warn('No face detected in enrollment image — skipped', { employeeId, imagePath });
+        }
+      }
+
+      if (embeddings.length === 0) {
+        throw new AppError(
+          'No face detected in any uploaded image — retake with a clear, well-lit photo',
+          422,
+          'NO_FACE_DETECTED',
+        );
+      }
+
+      const templateData = averageEmbeddings(embeddings);
+      const qualityScore = totalScore / embeddings.length;
+
       const record = await facialModel.create({
         employee_id: employeeId,
         template_data: templateData,
-        model_version: PLACEHOLDER_MODEL_VERSION,
-        image_count: files.length,
+        model_version: MODEL_VERSION,
+        quality_score: qualityScore,
+        image_count: embeddings.length,
       });
-      logger.info('Facial template registered', { employeeId, recordId: record.id });
-      res.status(201).json({ success: true, data: record });
+      logger.info('Facial template registered', {
+        employeeId,
+        recordId: record.id,
+        imagesUsed: embeddings.length,
+        qualityScore,
+      });
+      res.status(201).json({
+        success: true,
+        data: { ...record, images_used: embeddings.length },
+      });
     } catch (err) {
       next(err);
     }
   },
 ];
 
-/** Verify a live selfie against stored template (placeholder logic) */
+/**
+ * Verify a live selfie against the employee's stored template. Returns the
+ * euclidean distance between the embeddings and whether it passes the
+ * configured threshold. This is the same comparison the attendance punch
+ * runs server-side.
+ */
 export const verifyFacial = [
   upload.single('selfie'),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -82,12 +104,49 @@ export const verifyFacial = [
       const stored = await facialModel.findByEmployeeId(employeeId);
       if (!stored) throw new AppError('No facial template found for employee', 404, 'FACIAL_NOT_FOUND');
       if (!req.file) throw new AppError('Selfie image required', 400, 'NO_SELFIE');
-      // Placeholder verification: compare placeholder template with generated from selfie path (trivial)
-      // In a real system you'd call an AI service; here we just accept if template exists.
-      logger.info('Facial verification attempted', { employeeId });
-      res.json({ success: true, verified: true, message: 'Facial verification passed (placeholder)' });
+      if (!Array.isArray(stored.template_data) || stored.template_data.length === 0) {
+        throw new AppError('Stored facial template is corrupt', 500, 'FACIAL_TEMPLATE_CORRUPT');
+      }
+
+      const selfiePath = path.relative(process.cwd(), req.file.path);
+      const result = await extractEmbeddingFromFile(selfiePath);
+      if (!result) {
+        throw new AppError('No face detected in the selfie — retake facing the camera', 422, 'NO_FACE_DETECTED');
+      }
+
+      const distance = euclideanDistance(result.descriptor, stored.template_data);
+      const verified = distance <= config.facial.matchThreshold;
+      logger.info('Facial verification', {
+        employeeId,
+        distance: Number(distance.toFixed(4)),
+        verified,
+        threshold: config.facial.matchThreshold,
+      });
+      res.json({ success: true, verified, distance, threshold: config.facial.matchThreshold });
     } catch (err) {
       next(err);
     }
   },
 ];
+
+/** Enrollment status for an employee — does an active template exist? */
+export const facialStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { employeeId } = req.params;
+    const stored = await facialModel.findByEmployeeId(employeeId);
+    res.json({
+      success: true,
+      data: stored
+        ? {
+            enrolled: true,
+            model_version: stored.model_version,
+            quality_score: stored.quality_score,
+            image_count: stored.image_count,
+            created_at: stored.created_at,
+          }
+        : { enrolled: false },
+    });
+  } catch (err) {
+    next(err);
+  }
+};

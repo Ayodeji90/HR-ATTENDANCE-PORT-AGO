@@ -60,6 +60,9 @@ const LiveAttendance: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cameraState, setCameraState] = useState<'idle' | 'starting' | 'live' | 'denied'>('idle');
   const [selfie, setSelfie] = useState<string | null>(null);
+  // Face-match distance from the last punch (lower = closer match), set from
+  // the attendance record the backend returns after verification.
+  const [lastFaceDistance, setLastFaceDistance] = useState<number | null>(null);
 
   // ── Late check-in reason modal ───────────────────────────────────────
   const [reasonModal, setReasonModal] = useState<{ open: boolean; reason: string }>({
@@ -218,7 +221,7 @@ const LiveAttendance: React.FC = () => {
       setSuccess(null);
       try {
         const deviceInfo = `web · ${navigator.userAgent.slice(0, 220)}`;
-        await punchEndpoint[eventType]({
+        const record = await punchEndpoint[eventType]({
           site_id: selectedSiteId,
           latitude: position.latitude,
           longitude: position.longitude,
@@ -227,12 +230,27 @@ const LiveAttendance: React.FC = () => {
           gps_accuracy: position.accuracy ?? undefined,
           device_info: deviceInfo,
         });
-        setSuccess(`${ACTION_LABELS[eventType]} recorded — GPS + selfie captured.`);
+        const distance = record.facial_match_score != null ? Number(record.facial_match_score) : null;
+        setLastFaceDistance(distance);
+        setSuccess(
+          `${ACTION_LABELS[eventType]} recorded — GPS + live face verified${distance != null ? ` (match ${distance.toFixed(2)})` : ''}.`,
+        );
         setSelfie(null);
         setCoords(null);
         await loadData();
       } catch (err: any) {
-        setSubmitError(err?.response?.data?.error?.message ?? `${ACTION_LABELS[eventType]} failed. Try again.`);
+        const code = err?.response?.data?.error?.code;
+        if (code === 'FACIAL_MISMATCH') {
+          setSubmitError('Face does not match the enrolled employee — only the registered person can punch.');
+        } else if (code === 'FACIAL_NOT_ENROLLED') {
+          setSubmitError('No face enrolled for your account — ask HR to register your face before punching.');
+        } else if (code === 'FACIAL_SELFIE_REQUIRED') {
+          setSubmitError('A live selfie is required to verify your identity — capture one before punching.');
+        } else if (code === 'NO_FACE_DETECTED') {
+          setSubmitError('No face detected in the selfie — retake facing the camera.');
+        } else {
+          setSubmitError(err?.response?.data?.error?.message ?? `${ACTION_LABELS[eventType]} failed. Try again.`);
+        }
       } finally {
         setSubmitting(null);
       }
@@ -303,6 +321,11 @@ const LiveAttendance: React.FC = () => {
 
       {success && <Alert tone="success" className="mb-4">{success}</Alert>}
       {submitError && <Alert tone="danger" className="mb-4">{submitError}</Alert>}
+      {lastFaceDistance != null && (
+        <Alert tone="info" className="mb-4">
+          Last punch face match distance: {lastFaceDistance.toFixed(3)} (lower = better; must be ≤ 0.6 to pass).
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Left column: site + GPS + selfie */}

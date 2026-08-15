@@ -43,6 +43,11 @@ services:
     # files to .cjs so Node's ESM syntax detection can never misclassify them
     # (fixes "Unexpected token '{'" in knex's import-file.js). knexfile
     # production config uses extension 'cjs' to match.
+    # Facial verification (@vladmandic/face-api on @tensorflow/tfjs-node)
+    # needs a working compiler during install: tfjs-node ships prebuilt
+    # binaries for linux-x64 Node 20 (Render's default image), so the npm
+    # install downloads the .node binding instead of compiling it. Model
+    # files are committed under geotrackhr-backend/models/facial/.
     buildCommand: npm install --workspace geotrackhr-backend --include=dev && npm run build && node scripts/to-cjs.js
     # Migrations run before the server starts (knex is idempotent, so this is
     # safe on every start). The demo seed (admin + demo employees/sites) runs
@@ -89,7 +94,17 @@ services:
         sync: false
       # OPTIONAL demo mode — set to true to bypass the geofence + time-window
       # attendance policy so punches can be tested from anywhere at any time.
+      # Demo mode ALSO skips facial verification (no enrollment needed).
       # Set it in the Render dashboard (Environment tab → save). Left empty
       # (or false), the strict attendance rules apply.
       - key: ATTENDANCE_DEMO_MODE
+        sync: false
+      # OPTIONAL — facial-match sensitivity. Maximum euclidean distance between
+      # the live selfie embedding and the enrolled template (0.6 default; lower
+      # = stricter). Same-person faces score < 0.6, strangers > 0.6.
+      - key: FACIAL_MATCH_THRESHOLD
+        sync: false
+      # OPTIONAL — directory with the face-api model files. Defaults to
+      # ./models/facial (committed to the repo) — no need to set.
+      - key: FACIAL_MODEL_DIR
         sync: false

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '@middleware/auth';
 import { requireRole } from '@middleware/rbac';
-import { registerFacial, verifyFacial } from './facial.controller';
+import { registerFacial, verifyFacial, facialStatus } from './facial.controller';
 
 const router = Router();
 
@@ -13,5 +13,8 @@ router.post('/register/:employeeId', requireRole('admin', 'hr'), registerFacial)
 
 // Verify selfie – employee self‑service
 router.post('/verify/:employeeId', verifyFacial);
+
+// Enrollment status – any authenticated user
+router.get('/status/:employeeId', facialStatus);
 
 export default router;

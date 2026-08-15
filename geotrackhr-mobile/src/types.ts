@@ -104,5 +104,7 @@ export interface OfflinePunch {
   latitude: number;
   longitude: number;
   reason?: string;
+  /** Base64 data-URL selfie captured at punch time; verified at sync. */
+  selfie?: string;
   client_timestamp: string; // ISO — the backend replays rules against this
 }

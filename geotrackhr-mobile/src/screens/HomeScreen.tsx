@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { launchCamera, CameraOptions } from 'react-native-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchSites } from '../services/sites';
 import { fetchMe } from '../services/employees';
@@ -51,6 +53,10 @@ const HomeScreen = () => {
     reason: '',
     coords: { latitude: 0, longitude: 0 },
   });
+  // Live selfie: captured at punch time and sent with the punch. The backend
+  // verifies it matches the employee's enrolled face before recording.
+  const [selfie, setSelfie] = useState<string | null>(null);
+  const [capturingSelfie, setCapturingSelfie] = useState(false);
 
   const { coords, loading: locating, error: locationError, refresh: refreshLocation } = useLocation();
   const { isOnline, isInternetReachable } = useNetworkStatus();
@@ -106,10 +112,45 @@ const HomeScreen = () => {
     setRefreshing(false);
   }, [loadData]);
 
-  /** Shared punch pipeline: site → GPS → (reason) → API or offline queue */
+  /** Capture a live selfie with the front camera (base64 data URL). */
+  const captureSelfie = useCallback(async () => {
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      cameraType: 'front',
+      saveToPhotos: false,
+      includeBase64: true,
+      quality: 0.6,
+      maxWidth: 640,
+      maxHeight: 640,
+    };
+    setCapturingSelfie(true);
+    try {
+      const response = await launchCamera(options);
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        Alert.alert('Camera unavailable', response.errorMessage ?? 'Could not open the camera.');
+        return;
+      }
+      const asset = response.assets?.[0];
+      if (!asset?.base64) {
+        Alert.alert('Capture failed', 'No image was captured. Try again.');
+        return;
+      }
+      const mime = asset.type ?? 'image/jpeg';
+      setSelfie(`data:${mime};base64,${asset.base64}`);
+    } finally {
+      setCapturingSelfie(false);
+    }
+  }, []);
+
+  /** Shared punch pipeline: site → GPS → selfie → (reason) → API or offline queue */
   const handleAction = async (eventType: AttendanceEventType) => {
     if (!selectedSite) {
       Alert.alert('Select a site', 'Choose where you are working before punching.');
+      return;
+    }
+    if (!selfie) {
+      Alert.alert('Selfie required', 'Take a live selfie so we can verify it is really you punching.');
       return;
     }
     const position = await refreshLocation();
@@ -142,20 +183,41 @@ const HomeScreen = () => {
           latitude,
           longitude,
           reason,
+          selfie: selfie ?? undefined,
           client_timestamp: new Date().toISOString(),
         });
         setPendingCount((c) => c + 1);
         Alert.alert(
           'Saved offline',
-          "You're offline, so your punch was saved on this device. It will sync automatically when you're back online."
+          "You're offline, so your punch was saved on this device (selfie included). It will sync and verify when you're back online."
         );
+        setSelfie(null);
         return;
       }
-      await punchEndpoint[eventType]({ site_id: selectedSite.id, latitude, longitude, reason });
-      Alert.alert('Success', `${ACTION_LABELS[eventType]} recorded at ${selectedSite.name}.`);
+      await punchEndpoint[eventType]({ site_id: selectedSite.id, latitude, longitude, reason, selfie: selfie ?? undefined });
+      Alert.alert('Success', `${ACTION_LABELS[eventType]} recorded — face verified at ${selectedSite.name}.`);
+      setSelfie(null);
       loadData();
     } catch (err) {
-      Alert.alert(`${ACTION_LABELS[eventType]} failed`, getErrorMessage(err));
+      const code = (err as any)?.response?.data?.error?.code;
+      if (code === 'FACIAL_MISMATCH') {
+        Alert.alert(
+          `${ACTION_LABELS[eventType]} failed`,
+          'Face does not match the enrolled employee — only the registered person can punch.'
+        );
+      } else if (code === 'FACIAL_NOT_ENROLLED') {
+        Alert.alert(
+          `${ACTION_LABELS[eventType]} failed`,
+          'No face enrolled for your account — ask HR to register your face before punching.'
+        );
+      } else if (code === 'NO_FACE_DETECTED') {
+        Alert.alert(
+          `${ACTION_LABELS[eventType]} failed`,
+          'No face detected in the selfie — retake facing the camera.'
+        );
+      } else {
+        Alert.alert(`${ACTION_LABELS[eventType]} failed`, getErrorMessage(err));
+      }
     } finally {
       setSubmitting(null);
     }
@@ -242,6 +304,30 @@ const HomeScreen = () => {
         {activeActionLabel(window)} Window: {WINDOW_LABELS[window]}. Your GPS must be inside the site's geofence.
       </Text>
 
+      {/* Live selfie verification */}
+      <View style={styles.section}>
+        <Text style={typography.section}>Live selfie</Text>
+        <Text style={typography.small}>
+          Capture a live photo of yourself — it's verified against your enrolled face before the punch is accepted.
+        </Text>
+      </View>
+      {selfie ? (
+        <View style={styles.selfieRow}>
+          <Image source={{ uri: selfie }} style={styles.selfieThumb} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.selfieOk}>✓ Selfie captured</Text>
+            <Button title="Re-take" variant="outline" onPress={captureSelfie} loading={capturingSelfie} />
+          </View>
+        </View>
+      ) : (
+        <Button
+          title="Take live selfie"
+          variant={submitting ? 'secondary' : 'primary'}
+          onPress={captureSelfie}
+          loading={capturingSelfie}
+        />
+      )}
+
       {/* Late check-in reason modal */}
       <Modal visible={reasonModal.open} transparent animationType="fade" onRequestClose={() => setReasonModal((m) => ({ ...m, open: false }))}>
         <View style={styles.modalBackdrop}>
@@ -318,6 +404,21 @@ const styles = StyleSheet.create({
   },
   modalButtons: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   modalButton: { flex: 1 },
+  selfieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  selfieThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.md,
+    backgroundColor: colors.ink[100],
+  },
+  selfieOk: { fontSize: 14, fontWeight: '600', color: colors.success[600], marginBottom: 8 },
 });
 
 export default HomeScreen;
