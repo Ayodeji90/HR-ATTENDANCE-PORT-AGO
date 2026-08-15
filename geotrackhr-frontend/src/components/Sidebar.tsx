@@ -14,6 +14,7 @@ import {
   ScrollText,
   Settings as SettingsIcon,
   Camera,
+  UserCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -33,7 +34,10 @@ type NavGroup = {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
-    items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'supervisor', 'employee'] }],
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'supervisor', 'employee'] },
+      { to: '/account', label: 'My Account', icon: UserCircle, roles: ['admin', 'hr', 'supervisor', 'employee'] },
+    ],
   },
   {
     label: 'My Work',

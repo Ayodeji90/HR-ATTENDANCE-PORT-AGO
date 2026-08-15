@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useAuthStore } from '../store/authStore';
-import { logout } from '../services/auth';
+import { logout, changePassword } from '../services/auth';
 import { fetchMe } from '../services/employees';
+import { getErrorMessage } from '../services/api';
 import { Screen } from '../components/ui/Screen';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import type { Employee } from '../types';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -25,6 +27,39 @@ const ProfileScreen = () => {
       .then(setEmployee)
       .catch(() => {});
   }, []);
+
+  // ── Change password ───────────────────────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = useCallback(async () => {
+    if (newPassword.length < 8) {
+      Alert.alert('Password too short', 'New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Passwords do not match', 'New password and confirmation must match.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      Alert.alert('Same password', 'New password must be different from the current one.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Password changed', 'Use your new password next time you sign in.');
+    } catch (err) {
+      Alert.alert('Change failed', getErrorMessage(err));
+    } finally {
+      setChangingPassword(false);
+    }
+  }, [currentPassword, newPassword, confirmPassword]);
 
   const handleLogout = useCallback(async () => {
     Alert.alert('Log out?', 'You will need to log in again to check in.', [
@@ -72,6 +107,38 @@ const ProfileScreen = () => {
         ) : null}
       </Card>
 
+      <Card style={styles.passwordCard}>
+        <Text style={styles.passwordTitle}>Change password</Text>
+        <Input
+          label="Current password"
+          value={currentPassword}
+          onChangeText={setCurrentPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholder="••••••••"
+          placeholderTextColor={colors.ink[300]}
+        />
+        <Input
+          label="New password"
+          value={newPassword}
+          onChangeText={setNewPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholder="At least 8 characters"
+          placeholderTextColor={colors.ink[300]}
+        />
+        <Input
+          label="Confirm new password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholder="Repeat new password"
+          placeholderTextColor={colors.ink[300]}
+        />
+        <Button title="Change password" variant="outline" onPress={handleChangePassword} loading={changingPassword} />
+      </Card>
+
       <Button title="Log out" variant="danger" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
       <Text style={styles.version}>GeoTrackHR Mobile v1.0.0</Text>
     </Screen>
@@ -95,6 +162,8 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.ink[400], textTransform: 'uppercase', letterSpacing: 0.5 },
   fieldValue: { marginTop: 2, fontSize: 14, color: colors.ink[800] },
   fieldSpacing: { marginTop: spacing.lg },
+  passwordCard: { marginTop: spacing.xl },
+  passwordTitle: { fontSize: 16, fontWeight: '700', color: colors.ink[900], marginBottom: spacing.md },
   version: { marginTop: spacing.xl, textAlign: 'center', fontSize: 11, color: colors.ink[400] },
 });
 

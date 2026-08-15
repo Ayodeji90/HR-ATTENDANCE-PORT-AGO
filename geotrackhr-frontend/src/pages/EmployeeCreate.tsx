@@ -147,6 +147,11 @@ const EmployeeCreate: React.FC = () => {
             <Input label="Department" name="department" value={form.department} onChange={handleChange} />
             <Input label="Designation" name="designation" value={form.designation} onChange={handleChange} />
           </div>
+          <Alert tone="info">
+            If an email is provided, the employee gets a login account with the default password{' '}
+            <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Employee@123</code> — they can change
+            it anytime from <strong>My Account</strong> after signing in.
+          </Alert>
           <div className="flex justify-end pt-2">
             <Button type="submit" loading={submitting}>
               Create Employee

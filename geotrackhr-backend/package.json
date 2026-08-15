@@ -16,6 +16,7 @@
     "db:migrate:rollback": "tsx src/database/migrate.ts --rollback",
     "db:seed": "tsx src/database/seed.ts",
     "db:update-sites": "tsx src/scripts/update-company-sites.ts",
+    "db:backfill-logins": "tsx src/scripts/backfill-employee-logins.ts",
     "test": "jest --passWithNoTests",
     "lint": "eslint src/ --ext .ts"
   },

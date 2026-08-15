@@ -39,6 +39,16 @@ const deviceSchema = z.object({
   deviceName: z.string().optional(),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .refine((p) => p !== 'Employee@123', {
+      message: 'New password must be different from the default password',
+    }),
+});
+
 // ── Helpers ────────────────────────────────────────────
 
 async function getRoleName(roleId: string): Promise<string> {
@@ -303,6 +313,38 @@ export async function registerDevice(req: Request, res: Response, next: NextFunc
       success: true,
       data: { message: 'Device registered successfully' },
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/auth/change-password
+ *
+ * Changes the authenticated user's password. Verifies the current password
+ * first, then stores the new one (Argon2-hashed). Refresh tokens are kept
+ * intact so the session survives the change.
+ */
+export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const userId = req.user!.userId;
+
+    const user = await userModel.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const isValid = await verifyPassword(user.password_hash, currentPassword);
+    if (!isValid) {
+      throw new AppError('Current password is incorrect', 401, 'INVALID_CURRENT_PASSWORD');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await userModel.updatePassword(userId, passwordHash);
+
+    logger.info(`Password changed for user: ${user.email}`, { userId });
+    res.json({ success: true, data: { message: 'Password changed successfully' } });
   } catch (err) {
     next(err);
   }

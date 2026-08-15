@@ -24,6 +24,7 @@ import MyReports from './pages/MyReports';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
+import MyAccount from './pages/MyAccount';
 import SiteReport from './components/reports/SiteReport';
 import MonthlyReport from './components/reports/MonthlyReport';
 
@@ -72,6 +73,7 @@ const App: React.FC = () => {
           {/* Employee self-service */}
           <Route path="/leaves/mine" element={<EmployeeLeaves />} />
           <Route path="/reports/mine" element={<MyReports />} />
+          <Route path="/account" element={<MyAccount />} />
 
           {/* Reports */}
           <Route path="/reports" element={<Reports />} />

@@ -53,6 +53,9 @@ router.post(
 /** Logout — invalidate refresh token */
 router.post('/logout', authenticate, authController.logout);
 
+/** Change password — verify current, set new (any authenticated user) */
+router.post('/change-password', authenticate, authController.changePassword);
+
 /** Register device for push notifications */
 router.post('/devices', authenticate, authController.registerDevice);
 

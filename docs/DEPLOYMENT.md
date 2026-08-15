@@ -16,6 +16,12 @@ Render deploy, skipping if the database already has users):
 - Admin: `admin@geotrackhr.com` / `Admin@123`
 - Employees: `james.wilson@demo.com`, `maria.garcia@demo.com`, `robert.chen@demo.com` — all `Employee@123`
 
+**Employee accounts created by HR/admin** (Employees → Create Employee) get a
+login automatically when an email is provided, using the shared default
+password `Employee@123`. Every user can change their own password anytime via
+**My Account** (web) or **Profile → Change password** (mobile) — the backend
+verifies the current password first (`POST /api/auth/change-password`).
+
 ---
 
 ## 1. Backend + Database — Render (Blueprint)

@@ -123,6 +123,12 @@ export async function getEmployee(req: Request, res: Response, next: NextFunctio
   }
 }
 
+/**
+ * Default initial password for employees created by HR/admin. The employee
+ * is expected to change it after first login (see POST /auth/change-password).
+ */
+const DEFAULT_EMPLOYEE_PASSWORD = 'Employee@123';
+
 /** POST /api/employees – create new employee (admin/HR) */
 export async function createEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -135,8 +141,54 @@ export async function createEmployee(req: Request, res: Response, next: NextFunc
       approval_status: 'approved',
       approved_by: req.user!.userId,
     } as any);
+
+    // A login account is needed for the employee to sign in. When an email
+    // is provided, create (or link) a user account with the shared default
+    // password; the employee changes it after first login. Without an email
+    // no login can be created — the employee record still exists and HR can
+    // add credentials later via approval/registration flows.
+    let loginAccount: { created: boolean; email?: string } = { created: false };
+    if (employee.email) {
+      const employeeRole = await db('roles').where({ name: 'employee' }).first();
+      if (employeeRole) {
+        const existing = await db('users').where({ email: employee.email.toLowerCase().trim() }).first();
+        if (existing) {
+          // A user already exists for this email — link it and leave its
+          // password untouched.
+          await employeeModel.update(employee.id, { user_id: existing.id });
+          loginAccount = { created: false, email: employee.email };
+          logger.warn('Employee linked to existing login account', {
+            employeeId: employee.id,
+            userId: existing.id,
+          });
+        } else {
+          const passwordHash = await hashPassword(DEFAULT_EMPLOYEE_PASSWORD);
+          const user = await userModel.createUser({
+            role_id: employeeRole.id,
+            email: employee.email,
+            password_hash: passwordHash,
+            full_name: `${employee.first_name} ${employee.last_name}`,
+            phone: employee.phone ?? undefined,
+          });
+          await employeeModel.update(employee.id, { user_id: user.id });
+          loginAccount = { created: true, email: user.email };
+          logger.info('Login account created for employee with default password', {
+            employeeId: employee.id,
+            userId: user.id,
+          });
+        }
+      }
+    }
+
     logger.info('Employee created', { employeeId: employee.id });
-    res.status(201).json({ success: true, data: employee });
+    res.status(201).json({
+      success: true,
+      data: {
+        ...employee,
+        login_account_created: loginAccount.created,
+        initial_password: loginAccount.created ? DEFAULT_EMPLOYEE_PASSWORD : undefined,
+      },
+    });
   } catch (err) {
     next(err);
   }

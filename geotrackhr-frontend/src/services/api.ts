@@ -77,3 +77,8 @@ export const login = async (payload: { email: string; password: string }) => {
 export const logout = async (refreshToken: string) => {
   await api.post('/auth/logout', { refreshToken });
 };
+
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+  return response.data;
+};

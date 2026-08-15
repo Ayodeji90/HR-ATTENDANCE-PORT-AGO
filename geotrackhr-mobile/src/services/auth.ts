@@ -7,6 +7,14 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return response.data.data as AuthResponse;
 }
 
+/** POST /auth/change-password — verify current password and set a new one */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await api.post('/auth/change-password', { currentPassword, newPassword });
+}
+
 /** POST /auth/logout — invalidate the refresh token server-side */
 export async function logout(refreshToken: string): Promise<void> {
   try {

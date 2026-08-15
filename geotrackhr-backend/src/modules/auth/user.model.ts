@@ -107,6 +107,16 @@ export async function updateLastLogin(userId: string): Promise<void> {
 }
 
 /**
+ * Update a user's password hash.
+ */
+export async function updatePassword(userId: string, passwordHash: string): Promise<void> {
+  await db('users').where({ id: userId }).update({
+    password_hash: passwordHash,
+    updated_at: db.fn.now(),
+  });
+}
+
+/**
  * Get user profile by ID (safe version without password_hash).
  */
 export async function getProfile(id: string): Promise<UserProfile | null> {
