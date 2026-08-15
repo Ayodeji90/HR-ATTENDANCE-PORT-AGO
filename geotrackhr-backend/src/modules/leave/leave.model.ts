@@ -60,8 +60,16 @@ export const leaveModel = {
     if (params.employeeId) query.where('employee_id', params.employeeId);
     if (params.status) query.where('status', params.status);
     if (params.month) {
-      // YYYY-MM — any leave overlapping that month (start_date within it).
-      query.where('start_date', 'like', `${params.month}%`);
+      // YYYY-MM — any leave overlapping that month. start_date/end_date are
+      // Postgres `date` columns, so LIKE doesn't apply ("operator does not
+      // exist: date ~~ unknown"). Use an inclusive overlap instead:
+      // leave starts before next month begins AND ends on/after this month starts.
+      const [y, m] = params.month.split('-').map(Number);
+      const monthStart = `${params.month}-01`;
+      // Roll December over to January of the next year — a "13th month"
+      // literal (2026-13-01) is an invalid date and Postgres rejects it.
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      query.where('start_date', '<', nextMonth).andWhere('end_date', '>=', monthStart);
     }
     const totalResult = await query.clone().count<{ count: string }>('id as count').first();
     const total = totalResult ? Number(totalResult.count) : 0;

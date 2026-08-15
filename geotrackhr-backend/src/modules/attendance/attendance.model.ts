@@ -81,7 +81,17 @@ export const attendanceModel = {
     if (params.siteId) query.where('site_id', params.siteId);
     if (params.date) query.where('event_date', params.date);
     if (params.status) query.where('status', params.status);
-    if (params.month) query.where('event_date', 'like', `${params.month}%`);
+    if (params.month) {
+      // event_date is a Postgres `date` column — LIKE doesn't apply to dates
+      // ("operator does not exist: date ~~ unknown"). Filter with an
+      // inclusive month range instead: [YYYY-MM-01, next month's 01).
+      const [y, m] = params.month.split('-').map(Number);
+      const start = `${params.month}-01`;
+      // Roll December over to January of the next year — a "13th month"
+      // literal (2026-13-01) is an invalid date and Postgres rejects it.
+      const end = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      query.where('event_date', '>=', start).andWhere('event_date', '<', end);
+    }
     const totalResult = await query.clone().count<{ count: string }>('id as count').first();
     const total = totalResult ? Number(totalResult.count) : 0;
     const data = await query

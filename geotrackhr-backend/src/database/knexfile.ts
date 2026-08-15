@@ -1,9 +1,17 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import type { Knex } from 'knex';
+import pg from 'pg';
 
 // Load .env from the backend root (two levels up from src/database)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+// Postgres `date` columns (OID 1082) come back as JS Date objects by
+// default, which JSON-serialize as full timestamps ("2026-08-15T00:00:00.000Z")
+// instead of "2026-08-15". The frontend compares event_date/start_date
+// against plain YYYY-MM-DD strings (today filter, month grouping), so make
+// node-postgres return date columns as their raw text form.
+pg.types.setTypeParser(1082, (value) => value);
 
 /**
  * Build the pg connection config.
