@@ -1,5 +1,5 @@
 /**
- * Update the two company sites (geofences) in-place.
+ * Update the company sites (geofences) in-place.
  *
  * WHY: the live attendance flow verifies the employee's GPS against the
  * site's latitude/longitude + radius_meters. The seed (001_bootstrap) now
@@ -49,6 +49,21 @@ const companySites = [
     postal_code: '101233',
     latitude: 6.619298,
     longitude: 3.3462232,
+    radius_meters: 100,
+  },
+  {
+    code: 'SITE-AD3',
+    name: '11 Adeyemi St (Ijaiye)',
+    description: 'Company office — 11 Adeyemi St, Ijaiye, Lagos',
+    address_line1: '11 Adeyemi St',
+    city: 'Ijaiye',
+    state: 'Lagos',
+    country: 'NG',
+    postal_code: '102212',
+    // Google Maps pin for this address is misplaced (~1.4 km off); the
+    // coordinates below are the office's actual GPS measured on-site.
+    latitude: 6.4474,
+    longitude: 3.3903,
     radius_meters: 100,
   },
 ];

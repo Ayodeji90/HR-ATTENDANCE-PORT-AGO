@@ -9,7 +9,7 @@ import { hash } from 'argon2';
  *
  * - 4 roles (admin, hr, supervisor, employee)
  * - 1 admin user (admin@geotrackhr.com / Admin@123)
- * - 2 demo construction sites (with GPS coordinates)
+ * - 3 company sites (with GPS coordinates)
  * - 3 demo employees (for testing attendance)
  *
  * Passwords are hashed with Argon2 at seed time.
@@ -57,6 +57,7 @@ export async function seed(knex: Knex): Promise<void> {
   //    GPS is verified against) ────────────────────────────────────
   // Site 1: Kamio Homes — Victoria Island, Lagos
   // Site 2: Molade Okoya Thomas St office — Ogba, Ikeja, Lagos
+  // Site 3: 11 Adeyemi St office — Ijaiye, Lagos
   // Radii: 100 m (tight — employee must be at/near the office building).
   await knex('sites').insert([
     {
@@ -84,6 +85,22 @@ export async function seed(knex: Knex): Promise<void> {
       postal_code: '101233',
       latitude: 6.619298,
       longitude: 3.3462232,
+      radius_meters: 100,
+      is_active: true,
+    },
+    {
+      name: '11 Adeyemi St (Ijaiye)',
+      code: 'SITE-AD3',
+      description: 'Company office — 11 Adeyemi St, Ijaiye, Lagos',
+      address_line1: '11 Adeyemi St',
+      city: 'Ijaiye',
+      state: 'Lagos',
+      country: 'NG',
+      postal_code: '102212',
+      // Google Maps pin for this address is misplaced (~1.4 km off); the
+      // coordinates below are the office's actual GPS measured on-site.
+      latitude: 6.4474,
+      longitude: 3.3903,
       radius_meters: 100,
       is_active: true,
     },
