@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, LogOut, ChevronDown, UserCircle } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Logo from './ui/Logo';
 import { useAuthStore } from '@/store/authStore';
@@ -95,6 +95,17 @@ const Layout: React.FC = () => {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 z-20 mt-2 w-48 rounded-md border border-ink-100 bg-white py-1 shadow-lg">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/account');
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-50"
+                  >
+                    <UserCircle size={16} />
+                    My Account
+                  </button>
+                  <div className="my-1 h-px bg-ink-100" />
                   <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-50"
