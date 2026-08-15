@@ -234,7 +234,8 @@ harmless; the app name shown is "GeoTrackHR".
 - **Punch rejected with `GEOFENCE_VIOLATION` or `OUTSIDE_*_WINDOW` while
   testing** — the attendance policy is enforced server-side: the GPS must be
   within the site's geofence radius **and** the punch must be inside its time
-  window (check-in 00:00–10:00, afternoon 14:00–15:00, check-out 17:00–22:00).
+  window (check-in 00:00–10:00, on-time before 09:15 / late 09:16–10:00, afternoon 14:00–15:00,
+  check-out 17:00–22:00).
   The two company geofences are **Kamio Homes, 2A Louis Solomon Cl, Victoria
   Island, Lagos** (6.427667, 3.408044) and **9 Molade Okoya Thomas St, Ogba,
   Ikeja, Lagos** (6.619298, 3.3462232), each with a **100 m radius**. If the

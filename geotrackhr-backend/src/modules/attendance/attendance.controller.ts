@@ -62,7 +62,7 @@ const checkInSchema = z.object({
   site_id: z.string().uuid(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  reason: z.string().optional(), // required for late (9:01-10:00) check-ins
+  reason: z.string().optional(), // required for late (9:16-10:00) check-ins
   ...liveAttendanceFields,
 });
 
@@ -235,7 +235,7 @@ async function recordPunch(params: {
     if (isCheckInOnTime(localTime)) {
       status = 'approved';
     } else if (isCheckInLate(localTime)) {
-      if (!reason) throw new AppError('A reason is required for a late check-in (9:01-10:00)', 400, 'LATE_REASON_REQUIRED');
+      if (!reason) throw new AppError('A reason is required for a late check-in (after 9:15 AM)', 400, 'LATE_REASON_REQUIRED');
       status = 'pending';
     } else if (isCheckInVeryLate(localTime)) {
       status = 'pending';

@@ -334,7 +334,7 @@ const HomeScreen = () => {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Late check-in</Text>
             <Text style={styles.modalBody}>
-              It's after 9:00 AM. Add a reason — your check-in will be flagged for HR approval.
+              It's after 9:15 AM. Add a reason — your check-in will be flagged for HR approval.
             </Text>
             <TextInput
               value={reasonModal.reason}

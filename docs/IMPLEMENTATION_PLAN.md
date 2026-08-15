@@ -92,7 +92,7 @@
 | 6.1 | Attendance model + types | `src/modules/attendance/attendance.model.ts` | ✅ |
 | 6.2 | Morning check-in (GPS verify + time window) | `src/modules/attendance/attendance.controller.ts` | ✅ |
 | 6.3 | Geofence validation logic | `src/modules/attendance/attendance.controller.ts` | ✅ |
-| 6.4 | Late attendance handling (9:01-10:00) | `src/modules/attendance/attendance.controller.ts` | ✅ |
+| 6.4 | Late attendance handling (after 9:15 AM) | `src/modules/attendance/attendance.controller.ts` | ✅ |
 | 6.5 | Pending attendance (after 10:00) | `src/modules/attendance/attendance.controller.ts` | ✅ |
 | 6.6 | Afternoon site confirmation (2:00-3:00 PM) | `src/modules/attendance/attendance.controller.ts` | ✅ |
 | 6.7 | Evening check-out (5:00-10:00 PM) | `src/modules/attendance/attendance.controller.ts` | ✅ |

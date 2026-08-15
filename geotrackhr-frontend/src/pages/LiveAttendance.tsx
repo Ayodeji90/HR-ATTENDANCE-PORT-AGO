@@ -540,7 +540,7 @@ const LiveAttendance: React.FC = () => {
         }
       >
         <p className="mb-3 text-sm text-ink-600">
-          It's after 9:00 AM. Add a reason — your check-in will be flagged for HR approval.
+          It's after 9:15 AM. Add a reason — your check-in will be flagged for HR approval.
         </p>
         <textarea
           value={reasonModal.reason}

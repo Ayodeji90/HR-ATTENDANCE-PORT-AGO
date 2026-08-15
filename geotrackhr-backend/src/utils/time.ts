@@ -42,15 +42,15 @@ function toMinutes({ hour, minute }: LocalTime): number {
   return hour * 60 + minute;
 }
 
-/** On-time check-in: before or at 09:00 */
+/** On-time check-in: before or at 09:15 (site-wide late threshold) */
 export function isCheckInOnTime(t: LocalTime): boolean {
-  return toMinutes(t) <= 9 * 60;
+  return toMinutes(t) <= 9 * 60 + 15;
 }
 
-/** Late check-in window: 09:01–10:00 */
+/** Late check-in window: 09:16–10:00 */
 export function isCheckInLate(t: LocalTime): boolean {
   const m = toMinutes(t);
-  return m > 9 * 60 && m <= 10 * 60;
+  return m > 9 * 60 + 15 && m <= 10 * 60;
 }
 
 /** After 10:00 — requires manual HR approval regardless of reason */

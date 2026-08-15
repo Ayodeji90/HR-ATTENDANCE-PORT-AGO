@@ -41,7 +41,7 @@ export const ACTION_LABELS: Record<AttendanceEventType, string> = {
 /** True when the backend expects a reason for a check-in in this window */
 export function isLateCheckIn(date: Date = new Date()): boolean {
   const m = toMinutes(date.getHours(), date.getMinutes());
-  return m > 9 * 60 && m <= 10 * 60;
+  return m > 9 * 60 + 15 && m <= 10 * 60;
 }
 
 /** Local calendar date (YYYY-MM-DD) — records are keyed by local date. */

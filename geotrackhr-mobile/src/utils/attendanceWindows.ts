@@ -36,5 +36,5 @@ export const WINDOW_ACTION: Record<AttendanceWindow, AttendanceEventType | null>
 /** True when the backend expects a reason for a check-in in this window */
 export function isLateCheckIn(date: Date = new Date()): boolean {
   const m = toMinutes(date.getHours(), date.getMinutes());
-  return m > 9 * 60 && m <= 10 * 60;
+  return m > 9 * 60 + 15 && m <= 10 * 60;
 }
